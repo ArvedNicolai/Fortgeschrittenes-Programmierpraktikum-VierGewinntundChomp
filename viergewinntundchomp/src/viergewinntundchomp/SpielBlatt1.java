@@ -1,4 +1,3 @@
-package Spiel;
 import java.util.Scanner;
 
 abstract class Spiel
