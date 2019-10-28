@@ -361,7 +361,7 @@ public class SpielBlatt1
                 }
                 else
                 {
-                    spiel.Spielzug(spiel.player2, (int)(Math.random()*((spiel.feld.breite-1)+1))+1, 0);
+                    spiel.Spielzug(spiel.player2, (int)(Math.random()*((spiel.feld.breite-1)+1))+1, 0);     //errors
                 }
             }
         }
@@ -387,7 +387,7 @@ public class SpielBlatt1
                 }
                 else
                 {
-                    spiel.Spielzug(spiel.player2,(int)(Math.random()*((spiel.feld.breite-1)+1))+1,(int)(Math.random()*((spiel.feld.höhe-1)+1))+1);
+                    spiel.Spielzug(spiel.player2,(int)(Math.random()*((spiel.feld.breite-1)+1))+1,(int)(Math.random()*((spiel.feld.höhe-1)+1))+1);    //errors
                 }
             }
         }
