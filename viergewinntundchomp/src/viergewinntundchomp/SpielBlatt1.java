@@ -412,18 +412,12 @@ public class SpielBlatt1
                 continue;
             }
 
-            if (spielNr == 1)
+            if (spielNr == 1 || spielNr == 2)
             {
-                System.out.println("Vier Gewinnt wurde gewählt");
-                break;
-            }
-            if (spielNr == 2)
-            {
-                System.out.println("Chomp wurde gewählt.");
                 break;
             }
         }
-        System.out.println("Wie hoch soll das Spielfeld sein?");
+        System.out.println("Wie groß soll das Spielfeld sein?");
         while (true)
         {
             System.out.print("Höhe: ");
@@ -450,7 +444,6 @@ public class SpielBlatt1
                 System.out.println("Die minimalste Höhe für Chomp ist 3");
             }
         }
-        System.out.println("Wie breit soll das Spielfeld sein?");
         while (true)
         {
             System.out.print("Breite: ");
