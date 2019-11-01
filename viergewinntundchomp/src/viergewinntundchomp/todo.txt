@@ -1,0 +1,5 @@
+-bot verbessern (soll gekonnt gewinnen können)
+-Spielfeld und Methode Darstellen() in Spielfeld abstract machen
+-Spieler der anfängt soll zufällig ausgewählt werden
+-bei Namensvergebung auch Namen mit Leerzeichen dazwischen akzeptieren
+-errors finden, die nicht gefunden worden
