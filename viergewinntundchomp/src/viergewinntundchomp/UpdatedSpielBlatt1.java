@@ -80,28 +80,25 @@ class Speicher
     }
 }
 // Ende Aufgabe 1
-
+// Anfang von paar Methoden
 class Methoden
 {
     public static int DropChip4G(Spielfeld feld, int y)
     {
-        int x = feld.höhe - 1;
-        for (; x >= -1; x--)
+        int x = 0;
+        while (x < feld.höhe)
         {
-            if (x < 0 || feld.status[x][y] == "W")
+            if (feld.status[x][y] == "W")
             {
                 break;
             }
+            x++;
         }
         return x;
     }
     public static String[] Winable4G(Spielfeld feld, Spieler spieler)
     {
         String[] winable = new String[feld.breite];
-        for (int k = 0; k < feld.breite; k++)
-        {
-            winable[k] = "X";
-        }
         for (int y = 0; y < feld.breite; y++)
         {
             winable[y] = CheckWinable4G(feld, spieler, DropChip4G(feld,y), y);
@@ -110,145 +107,103 @@ class Methoden
     }
     public static String CheckWinable4G(Spielfeld feld, Spieler spieler, int x, int y)
     {
-        String s = "X";
+        String s;
         if (x >= feld.höhe || x < 0)
         {
             s = "I";
         }
         else
         {
-            if (CheckWinableHorizontal(feld, spieler, x, y))
+            String original = feld.status[x][y];
+            feld.status[x][y] = spieler.farbe;
+            if (CheckWin4G(feld, spieler))
             {
                 s = spieler.farbe;
             }
-            if (CheckWinableVertikal(feld, spieler, x, y))
+            else
             {
-                s = spieler.farbe;
+                s = "X";
             }
-            if (CheckWinableSchräg(feld, spieler, x, y))
-            {
-                s = spieler.farbe;
-            }
+            feld.status[x][y] = original;
         }
         return s;
     }
-    public static boolean CheckWinableSchräg(Spielfeld feld, Spieler spieler, int x, int y)
+    public static boolean CheckWin4G(Spielfeld feld, Spieler spieler)
     {
-        String original = feld.status[x][y];
-        feld.status[x][y] = spieler.farbe;
-        for (int k = -3; k < 1; k++)
+        for (int i = 0; i < feld.höhe; i++)     //links nach rechts
         {
-            int s = x + k;
-            int t = y + k;
-            if (t >= 0 && t < feld.breite - 3 && s >= 0 && s < feld.höhe - 3)
+            for (int j = 0; j < feld.breite - 3; j++)
             {
-                if (feld.status[s][t] == spieler.farbe && feld.status[s][t] == feld.status[s + 1][t + 1] && feld.status[s][t] == feld.status[s + 2][t + 2] && feld.status[s][t] == feld.status[s + 3][t + 3])
+                if (feld.status[i][j] == spieler.farbe && feld.status[i][j] == feld.status[i][j+1] && feld.status[i][j] == feld.status[i][j+2] && feld.status[i][j] == feld.status[i][j+3])
                 {
-                    feld.status[x][y] = original;
-                    return true;
-                }
-            }
-            t = y - k;
-            if (t - 3 >= 0 && t < feld.breite && s >= 0 && s < feld.höhe - 3)
-            {
-                if (feld.status[s][t] == spieler.farbe && feld.status[s][t] == feld.status[s + 1][t - 1] && feld.status[s][t] == feld.status[s + 2][t - 2] && feld.status[s][t] == feld.status[s + 3][t - 3])
-                {
-                    feld.status[x][y] = original;
                     return true;
                 }
             }
         }
-        feld.status[x][y] = original;
-        return false;
-    }
-    public static boolean CheckWinableHorizontal(Spielfeld feld, Spieler spieler, int x, int y)
-    {
-        String original = feld.status[x][y];
-        feld.status[x][y] = spieler.farbe;
-        for (int k = -3 ; k < 1 ; k++)
+        for (int i = 0; i < feld.höhe - 3; i++)       //unten nach oben
         {
-            int t = y + k;
-            if (t >= 0 && t < feld.breite - 3)
+            for (int j = 0; j < feld.breite; j++)
             {
-                if (feld.status[x][t] == spieler.farbe && feld.status[x][t] == feld.status[x][t + 1] && feld.status[x][t] == feld.status[x][t + 2] && feld.status[x][t] == feld.status[x][t + 3])
+                if (feld.status[i][j] == spieler.farbe && feld.status[i][j] == feld.status[i+1][j] && feld.status[i][j] == feld.status[i+2][j] && feld.status[i][j] == feld.status[i+3][j])
                 {
-                    feld.status[x][y] = original;
                     return true;
                 }
             }
         }
-        feld.status[x][y] = original;
-        return false;
-    }
-    public static boolean CheckWinableVertikal(Spielfeld feld, Spieler spieler, int x, int y)
-    {
-        x = x + 3;
-        if (x >= 0 && x < feld.höhe)
+        for (int i = 0; i < feld.höhe - 3; i++)       //obenrechts nach untenlinks
         {
-            for (int i = 0; i < 3; i++)
+            for (int j = 0; j < feld.breite - 3; j++)
             {
-                if (feld.status[x - i][y] != spieler.farbe)
+                if (feld.status[i][j] == spieler.farbe && feld.status[i][j] == feld.status[i+1][j+1] && feld.status[i][j] == feld.status[i+2][j+2] && feld.status[i][j] == feld.status[i+3][j+3])
                 {
-                    return false;
+                    return true;
                 }
             }
-            return true;
+        }
+        for (int i = 0; i < feld.höhe - 3; i++)         //obenlinks nach untenrechts check
+        {
+            for (int j = feld.breite - 1; j > 2; j--)
+            {
+                if (feld.status[i][j] == spieler.farbe && feld.status[i][j] == feld.status[i+1][j-1] && feld.status[i][j] == feld.status[i+2][j-2] && feld.status[i][j] == feld.status[i+3][j-3])
+                {
+                    return true;
+                }
+            }
         }
         return false;
     }
     public static boolean CheckWinChomp(Spielfeld feld)
     {
-        if (feld.status[1][0] != "W" && feld.status[1][1] != "W" && feld.status[0][1] != "W")
-        {
-            return true;
-        }
-        return false;
-    }
-
-    public static boolean CheckAuswahl4G(Spielfeld feld, Spieler spieler, int y)
-    {
-        if (y > feld.breite)
-        {
-            return true;
-        }
-        int x = DropChip4G(feld, y-1);
-        if (x >= 0 && x < feld.höhe)
-        {
-            feld.status[x][y-1] = spieler.farbe;
-            return false;
-        }
-        return true;
-    }
-
-    public static boolean CheckAuswahlChomp(Spielfeld feld, int x, int y)
-    {
-        if (x > feld.breite || y > feld.höhe || feld.status[feld.höhe-y][x-1] != "W" || (x == 1 && y == feld.höhe) || x < 1 || y < 1)
+        if (feld.status[feld.höhe-2][0] != "W" && feld.status[feld.höhe-1][1] != "W")
         {
             return true;
         }
         return false;
     }
 }
-
+// Ende von den paar Methoden
 // Anfang Aufgabe 2
 
 class VierGewinnt extends Spiel implements Protokolierbar
 {
     Scanner scan = new Scanner(System.in);
-    public VierGewinnt(String name1, String name2, Boolean hatBot, int höhe, int breite) {
+    public VierGewinnt(String name1, String name2, Boolean hatBot, int höhe, int breite)
+    {
         super(name1, name2, hatBot, höhe, breite);
         feld = new Spielfeld()
         {
             @Override
             void Darstellen()
             {
-                for (int i = 0; i < höhe; i++)
+                for (int i = höhe - 1; i >= 0; i--)
                 {
                     System.out.print("\n");
                     for (int j = 0; j < breite; j++)
                     {
+
                         System.out.print(status[i][j] + "\t");
                     }
+
                 }
                 System.out.print("\n");
                 for (int j = 1; j <= breite; j++)
@@ -272,33 +227,14 @@ class VierGewinnt extends Spiel implements Protokolierbar
 
     public void Spielzug(Spieler spieler, int x, int y)
     {
-        while (Methoden.CheckAuswahl4G(feld, spieler, x))
-        {
-            if (spieler.istBot)
-            {
-                x = (int) (Math.random()*feld.breite+1);
-            }
-            else
-            {
-                System.out.println("Auswahl ungültig. Biite nehmen Sie eine andere Spalte.");
-                try
-                {
-                    x = scan.nextInt();
-                }
-                catch (java.util.InputMismatchException e)
-                {
-                    String bad_input = scan.next();
-                    System.out.println("Bad input: " + bad_input);
-                    continue;
-                }
-            }
-        }
+        feld.status[x][y-1] = spieler.farbe;
     }
     public void Durchgang()
     {
         for (int i = 0; i < 2; i++)
         {
-            if (this.ersterZug)
+            int spalte;
+            if (this.ersterZug)     //Ausnahme erster Zug
             {
                 i = (int) (Math.random() + .5);
                 this.ersterZug = false;
@@ -306,7 +242,7 @@ class VierGewinnt extends Spiel implements Protokolierbar
             }
             String[] winablePlayer = Methoden.Winable4G(feld, spieler[i]);
             String[] winableEnemy = Methoden.Winable4G(feld, spieler[(i+1) % 2]);
-            for (int k = 0; k < feld.breite; k++)
+            for (int k = 0; k < feld.breite; k++)   //Check ob es ein Unentschieden ist bzw. nichts mehr ins Feld reinpasst
             {
                 this.unentschieden = true;
                 if (winablePlayer[k] != "I")
@@ -315,27 +251,19 @@ class VierGewinnt extends Spiel implements Protokolierbar
                     break;
                 }
             }
-            feld.Darstellen();
-            int spalte;
             if (!this.unentschieden)
             {
-                if (!spieler[i].istBot)
+                feld.Darstellen();
+                System.out.println(spieler[i].name + " (" + spieler[i].farbe + ") ist dran");
+                while (true)
                 {
-                    while (true)
+                    if (!spieler[i].istBot)     //Anfang Auswahl der Spalte des menschlichen Spielers
                     {
                         System.out.println("In welche Spalte wollen Sie reinwerfen");
                         System.out.print("Spalte: ");
                         try
                         {
                             spalte = scan.nextInt();
-                            if (spalte > 0 && spalte <= feld.breite)
-                            {
-                                break;
-                            }
-                            else
-                            {
-                                System.out.println("Spalte ungültig, bitte neue Spalte auswählen");
-                            }
                         }
                         catch (java.util.InputMismatchException e)
                         {
@@ -344,53 +272,52 @@ class VierGewinnt extends Spiel implements Protokolierbar
                             continue;
                         }
                     }
-                    if (winablePlayer[spalte-1] == spieler[i].farbe)
+                    else    //Anfang Auswahl der Spalte des Computers
                     {
-                        this.gewonnen = true;
-                    }
-                    Spielzug(spieler[i], spalte, 0);
-                }
-                else
-                {
-                    boolean zugGemacht = false;
-                    for (spalte = 1; spalte <= feld.breite; spalte++)
-                    {
-                        if (winablePlayer[spalte-1] == spieler[i].farbe)
+                        spalte = (int)(Math.random()*feld.breite+1);    //zufällige Spalte wird gewählt
+                        for (int k = 1; k <= feld.breite; k++)
                         {
-                            Spielzug(spieler[i], spalte, 0);
-                            zugGemacht = true;
-                            this.gewonnen = true;
-                            break;
-                        }
-                    }
-                    if (!this.gewonnen || !zugGemacht)
-                    {
-                        for (spalte = 1; spalte <= feld.breite; spalte++)
-                        {
-                            if (winableEnemy[spalte-1] == spieler[(i+1) % 2].farbe)
+                            if (winableEnemy[k-1] == spieler[(i+1) % 2].farbe)     //falls der Gegner gewinnen könnte wird es damit verhindert
                             {
-                                Spielzug(spieler[i], spalte, 0);
-                                zugGemacht = true;
-                                break;
+                                spalte = k;
+                            }
+                        }
+                        for (int k = 1; k <= feld.breite; k++)
+                        {
+                            if (winablePlayer[k-1] == spieler[i].farbe)    //falls der Computer gewinnen kann wird er es damit tun
+                            {
+                                spalte = k;
                             }
                         }
                     }
-                    if (!zugGemacht)
+                    if (spalte > 0 && spalte <= feld.breite && Methoden.DropChip4G(feld, (spalte-1)) < feld.höhe)   //Check eine gültige Spalte ausgewählt wurde
                     {
-                        Spielzug(spieler[i], (int)(Math.random()*feld.breite+1), 0);
+                        if (winablePlayer[spalte-1] == spieler[i].farbe)    //Check ob das Spiel gewonnen wurde
+                        {
+                            this.gewonnen = true;
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        if (!spieler[i].istBot)
+                        {
+                            System.out.println("Auswahl ungültig. Biite wählen Sie eine andere Spalte.");
+                        }
                     }
                 }
+                Spielzug(spieler[i], Methoden.DropChip4G(feld, (spalte-1)), spalte);
+            }
+            else
+            {
+                feld.Darstellen();
+                System.out.println("Unentschieden, keiner hat gewonnen.");
+                break;
             }
             if (this.gewonnen)
             {
                 feld.Darstellen();
                 System.out.println(spieler[i].name + " hat gewonnen");
-                break;
-            }
-            if (this.unentschieden)
-            {
-                System.out.println("Unentschieden, keiner hat gewonnen.");
-                feld.Darstellen();
                 break;
             }
         }
@@ -417,9 +344,9 @@ class Chomp extends Spiel implements Protokolierbar
             @Override
             void Darstellen()
             {
-                for (int i = 0; i < höhe; i++)
+                for (int i = höhe - 1; i >= 0; i--)
                 {
-                    System.out.print("\n" + (höhe - i) + "\t");
+                    System.out.print("\n" + (i + 1) + "\t");
                     for (int j = 0; j < breite; j++)
                     {
                         System.out.print(status[i][j] + "\t");
@@ -450,52 +377,18 @@ class Chomp extends Spiel implements Protokolierbar
                 feld.status[i][j] = "W";
             }
         }
-        feld.status[0][0] = "X";
+        feld.status[feld.höhe-1][0] = "X";
     }
 
     public void Spielzug(Spieler spieler, int x, int y)
     {
-        while (Methoden.CheckAuswahlChomp(feld, x, y))
+        for (int i = x-1; i >= 0; i--)
         {
-            if (spieler.istBot)
+            for (int j = y-1; j < feld.breite; j++)
             {
-                x = (int)(Math.random()*feld.breite+1);
-                y = (int)(Math.random()*feld.höhe+1);
-            }
-            else
-            {
-                System.out.println("Auswahl ungültig. Biite nehmen Sie ein anderes Feld.");
-                System.out.print("Neue Reihe: ");
-                try
+                if (feld.status[i][j] == "W")
                 {
-                    y = scan.nextInt();
-                }
-                catch (java.util.InputMismatchException e)
-                {
-                    String bad_input = scan.next();
-                    System.out.println("Bad input: " + bad_input);
-                    continue;
-                }
-                System.out.print("Neue Spalte: ");
-                try
-                {
-                    x = scan.nextInt();
-                }
-                catch (java.util.InputMismatchException e)
-                {
-                    String bad_input = scan.next();
-                    System.out.println("Bad input: " + bad_input);
-                    continue;
-                }
-            }
-        }
-        for (int i = y-1; i >= 0; i--)
-        {
-            for (int j = x-1; j < feld.breite; j++)
-            {
-                if (feld.status[feld.höhe-i-1][j] == "W")
-                {
-                    feld.status[feld.höhe-i-1][j] = spieler.farbe;
+                    feld.status[i][j] = spieler.farbe;
                 }
             }
         }
@@ -505,60 +398,78 @@ class Chomp extends Spiel implements Protokolierbar
     {
         for (int i = 0; i < 2; i++)
         {
-            if (this.ersterZug)
+            int reihe, spalte;
+            if (this.ersterZug)     //Ausnahme für ersten Zug (zufälliger Spieler beginnt)
             {
-                i = (int) (Math.random() + .5);
+                i = (int) (Math.random() + .5);     //Wert zwischen .5 und 1.5 (durch int abrunden 0 und 1)
                 this.ersterZug = false;
                 System.out.println(spieler[i].name + " fängt an.");
             }
             feld.Darstellen();
-            if (!spieler[i].istBot)
+            System.out.println(spieler[i].name + " (" + spieler[i].farbe + ") ist dran");
+            while (true)
             {
-                System.out.println("Welches Feld wollen Sie auswählen");
-                int reihe, spalte;
-                System.out.print("Reihe: ");
-                try
+                if (!spieler[i].istBot)     //Anfang Feldauswahl für menschlichen Spieler
                 {
-                    reihe = scan.nextInt();
-                }
-                catch (java.util.InputMismatchException e)
+                    System.out.println("Welches Feld wollen Sie auswählen");
+                    System.out.print("Reihe: ");
+                    try
+                    {
+                        reihe = scan.nextInt();
+                    }
+                    catch (java.util.InputMismatchException e)
+                    {
+                        String bad_input = scan.next();
+                        System.out.println("Bad input: " + bad_input);
+                        continue;
+                    }
+                    System.out.print("Spalte: ");
+                    try
+                    {
+                        spalte = scan.nextInt();
+                    }
+                    catch (java.util.InputMismatchException e)
+                    {
+                        String bad_input = scan.next();
+                        System.out.println("Bad input: " + bad_input);
+                        continue;
+                    }
+                }     //Ende Feldauswahl für menschlichen Spieler
+                else    // Anfang Verhalten Computer (Chomp)
                 {
-                    String bad_input = scan.next();
-                    System.out.println("Bad input: " + bad_input);
-                    continue;
-                }
-                System.out.print("Spalte: ");
-                try
+                    if (feld.status[feld.höhe-1][1] != "W")
+                    {
+                        reihe = feld.höhe - 1;
+                        spalte = 1;
+
+                    }
+                    else
+                    {
+                        if (feld.status[feld.höhe - 2][0] != "W")
+                        {
+                            reihe = feld.höhe;
+                            spalte = 2;
+                        }
+                        else
+                        {
+                            reihe = (int)(Math.random()*feld.höhe+1);
+                            spalte = (int)(Math.random()*feld.breite+1);
+                        }
+                    }
+                }   // Ende Verhalten Computer (Chomp)
+                if (reihe > 0 && reihe <= feld.höhe && spalte > 0 && spalte <= feld.breite && feld.status[reihe-1][spalte-1] == "W" && !(reihe == feld.höhe && spalte == 1))
                 {
-                    spalte = scan.nextInt();
+                    break;
                 }
-                catch (java.util.InputMismatchException e)
+                else
                 {
-                    String bad_input = scan.next();
-                    System.out.println("Bad input: " + bad_input);
-                    continue;
+                    if (!spieler[i].istBot)
+                    {
+                        System.out.println("Auswahl ungültig. Biite nehmen Sie ein anderes Feld.");
+                    }
                 }
-                Spielzug(spieler[i], spalte, reihe);
             }
-            else
-            {
-                boolean zugDruchgeführt = false;
-                if (feld.status[0][1] != "W" && !zugDruchgeführt)
-                {
-                    Spielzug(spieler[i],2,feld.höhe);
-                    zugDruchgeführt = true;
-                }
-                if (feld.status[1][0] != "W" && !zugDruchgeführt)
-                {
-                    System.out.println("im in");
-                    Spielzug(spieler[i],1,feld.höhe - 1);
-                    zugDruchgeführt = true;
-                }
-                if (!zugDruchgeführt)
-                {
-                    Spielzug(spieler[i],(int)(Math.random()*feld.breite+1),(int)(Math.random()*feld.höhe+1));
-                }
-            }
+            Spielzug(spieler[i], reihe, spalte);
             if (this.gewonnen)
             {
                 feld.Darstellen();
@@ -578,13 +489,13 @@ class Chomp extends Spiel implements Protokolierbar
     }
 }
 
-public class UpdatedSpielBlatt1
+public class SpielBlatt1
 {
     public static void main(String[] args)
     {
         Scanner scan = new Scanner(System.in);
         Spiel spiel;
-        String spieler1, spieler2 = "Computer";
+        String spieler1, spieler2 = "Spieler 2 Computer";
         boolean hatBot;
         int spielNr, botEingabe, spielHöhe, spielBreite;
         System.out.println("Welches Spiel wollen Sie spielen");
@@ -598,8 +509,7 @@ public class UpdatedSpielBlatt1
             }
             catch (java.util.InputMismatchException e)
             {
-                String bad_input = scan.next();
-                System.out.println("Bad input: " + bad_input);
+                System.out.println("Bitte wählen Sie mit 1 oder 2 aus");
                 continue;
             }
 
@@ -672,7 +582,6 @@ public class UpdatedSpielBlatt1
             }
             catch (java.util.InputMismatchException e)
             {
-                String bad_input = scan.next();
                 System.out.println("Bitte wählen sie mit 1 oder 2 aus");
                 continue;
             }
