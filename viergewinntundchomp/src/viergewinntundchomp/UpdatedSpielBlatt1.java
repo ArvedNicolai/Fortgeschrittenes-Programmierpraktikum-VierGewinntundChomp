@@ -10,7 +10,6 @@ abstract class Spiel
     {
         spieler[0] = new Spieler(name1, "G", false);
         spieler[1] = new Spieler(name2, "R", hatBot);
-        feld = new Spielfeld(höhe, breite);
     }
     abstract void Spielzug(Spieler spieler, int x, int y);
     abstract void Durchgang();
@@ -29,48 +28,11 @@ class Spieler
     }
 }
 
-class Spielfeld
+abstract class Spielfeld
 {
     int breite, höhe;
     String[][] status;
-    public Spielfeld(int x, int y)
-    {
-        this.höhe = x;
-        this.breite = y;
-        status = new String[höhe][breite];
-        for (int i = 0; i < höhe; i++)
-        {
-            for (int j = 0; j < breite; j++)
-            {
-                status[i][j] = "W";
-            }
-        }
-    }
-    public void Darstellen()
-    {
-
-        for (int i = 0; i < höhe; i++)
-        {
-            System.out.print("\n" + (höhe - i) + "\t");
-            for (int j = 0; j < breite; j++)
-            {
-                System.out.print(status[i][j] + "\t");
-            }
-        }
-        System.out.print("\n");
-        for (int j = 0; j <= breite; j++)
-        {
-            if (j == 0)
-            {
-                System.out.print(" \t");
-            }
-            else
-            {
-                System.out.print(j + "\t");
-            }
-        }
-        System.out.print("\n");
-    }
+    abstract void Darstellen();
 }
 
 interface Protokolierbar
@@ -275,6 +237,37 @@ class VierGewinnt extends Spiel implements Protokolierbar
     Scanner scan = new Scanner(System.in);
     public VierGewinnt(String name1, String name2, Boolean hatBot, int höhe, int breite) {
         super(name1, name2, hatBot, höhe, breite);
+        feld = new Spielfeld()
+        {
+            @Override
+            void Darstellen()
+            {
+                for (int i = 0; i < höhe; i++)
+                {
+                    System.out.print("\n");
+                    for (int j = 0; j < breite; j++)
+                    {
+                        System.out.print(status[i][j] + "\t");
+                    }
+                }
+                System.out.print("\n");
+                for (int j = 1; j <= breite; j++)
+                {
+                    System.out.print(j + "\t");
+                }
+                System.out.println("\n");
+            }
+        };
+        feld.höhe = höhe;
+        feld.breite = breite;
+        feld.status = new String[höhe][breite];
+        for (int i = 0; i < höhe; i++)
+        {
+            for (int j = 0; j < breite; j++)
+            {
+                feld.status[i][j] = "W";
+            }
+        }
     }
 
     public void Spielzug(Spieler spieler, int x, int y)
@@ -390,12 +383,14 @@ class VierGewinnt extends Spiel implements Protokolierbar
             }
             if (this.gewonnen)
             {
+                feld.Darstellen();
                 System.out.println(spieler[i].name + " hat gewonnen");
                 break;
             }
             if (this.unentschieden)
             {
                 System.out.println("Unentschieden, keiner hat gewonnen.");
+                feld.Darstellen();
                 break;
             }
         }
@@ -417,6 +412,44 @@ class Chomp extends Spiel implements Protokolierbar
     Scanner scan = new Scanner(System.in);
     public Chomp(String name1, String name2, Boolean hatBot, int höhe, int breite) {
         super(name1, name2, hatBot, höhe, breite);
+        feld = new Spielfeld()
+        {
+            @Override
+            void Darstellen()
+            {
+                for (int i = 0; i < höhe; i++)
+                {
+                    System.out.print("\n" + (höhe - i) + "\t");
+                    for (int j = 0; j < breite; j++)
+                    {
+                        System.out.print(status[i][j] + "\t");
+                    }
+                }
+                System.out.print("\n");
+                for (int j = 0; j <= breite; j++)
+                {
+                    if (j == 0)
+                    {
+                        System.out.print(" \t");
+                    }
+                    else
+                    {
+                        System.out.print(j + "\t");
+                    }
+                }
+                System.out.println("\n");
+            }
+        };
+        feld.höhe = höhe;
+        feld.breite = breite;
+        feld.status = new String[höhe][breite];
+        for (int i = 0; i < höhe; i++)
+        {
+            for (int j = 0; j < breite; j++)
+            {
+                feld.status[i][j] = "W";
+            }
+        }
         feld.status[0][0] = "X";
     }
 
@@ -528,6 +561,7 @@ class Chomp extends Spiel implements Protokolierbar
             }
             if (this.gewonnen)
             {
+                feld.Darstellen();
                 System.out.println(spieler[i].name + " hat gewonnen");
                 break;
             }
@@ -546,7 +580,7 @@ class Chomp extends Spiel implements Protokolierbar
 
 public class UpdatedSpielBlatt1
 {
-    public static void main(String [] args)
+    public static void main(String[] args)
     {
         Scanner scan = new Scanner(System.in);
         Spiel spiel;
@@ -676,4 +710,3 @@ public class UpdatedSpielBlatt1
         }
     }
 }
-
