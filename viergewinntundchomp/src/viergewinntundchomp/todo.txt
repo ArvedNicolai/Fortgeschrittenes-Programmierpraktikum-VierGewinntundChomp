@@ -1,5 +1,5 @@
 -bot verbessern (soll gekonnt gewinnen können)  //ist fertig (bot vlt. zu gut)
--Spielfeld und Methode Darstellen() in Spielfeld abstract machen    //mach ich auch noch später, weiß aber nicht ob es so aussehen soll
+-Spielfeld und Methode Darstellen() in Spielfeld abstract machen    //fertig? ka wie genau es aussehen soll
 -Spieler der anfängt soll zufällig ausgewählt werden  //ist fertig
 -bei Namensvergebung auch Namen mit Leerzeichen dazwischen akzeptieren  //ist fertig
 -errors finden, die nicht gefunden worden
