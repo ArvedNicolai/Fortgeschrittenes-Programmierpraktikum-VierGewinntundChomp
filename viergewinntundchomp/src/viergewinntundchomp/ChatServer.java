@@ -59,22 +59,38 @@ public class ChatServer implements Runnable
             return i;
         return -1;
     }
+    public void sendJoined(int ID)
+    {
+        ChatServerThread client = clients[findClient(ID)];
+        for (int i = 0; i < clientCount; i++)
+        {
+            clients[i].send(client.name + " joined");
+        }
+        client.send("Zurzeit im Raum: " +getList());
+    }
     public synchronized void handle(int ID, String input)
     {
-	ChatServerThread client = clients[findClient(ID)];
-        if (input.equals(".bye"))
+        ChatServerThread client = clients[findClient(ID)];
+        if (input.equals("getList"))
         {
-            clients[findClient(ID)].send(".bye");
-            remove(ID);
+            client.send(getList());
         }
-	else
-	    {
-		if (input.equals("getList"))
-		    client.send(getList());
-	else
-	    for (int i = 0; i < clientCount; i++)
-		clients[i].send( client.name  + ": " + input);
-	    }
+        else
+        {
+            String message = client.name + ": " + input;
+            for (int i = 0; i < clientCount; i++)
+            {
+                clients[i].send(message);
+                if (input.equals(".bye"))
+                {
+                    clients[i].send(client.name + " disconnected");
+                }
+            }
+            if (input.equals(".bye"))
+            {
+                remove(ID);
+            }
+        }
     }
     public synchronized void remove(int ID)
     {
@@ -120,14 +136,22 @@ public class ChatServer implements Runnable
     }
     public String getList()
     {
-	String namen = "";
+	String namen = "[";
 	for (int i = 0; i < clientCount; i++)
 	    {
-		if (clients[i].name != null)
+		    if (clients[i].name != null)
 		    {
-		    namen = namen + clients[i].name + ", ";
+		        if (i < clientCount - 1)
+                {
+                    namen = namen + clients[i].name + ", ";
+                }
+		        else
+                {
+                    namen = namen + clients[i].name;
+                }
 		    }
 	    }
+	namen = namen + "]";
 	return namen;
     }
     public static void main(String args[])
@@ -143,9 +167,8 @@ class ChatServerThread extends Thread
     private int ID = -1;
     DataInputStream streamIn = null;
     DataOutputStream streamOut = null;
-    boolean anmelden = true;
+    boolean accepted = false;
     String name;
-    String passwort;
 
     public ChatServerThread(ChatServer server, Socket socket)
     {
@@ -179,14 +202,26 @@ class ChatServerThread extends Thread
         {
             try
             {
-		if (anmelden)
-		    {
-			send("Name: ");
-			name = streamIn.readUTF();
-			send("Passwort: ");
-			passwort = streamIn.readUTF();
-			anmelden = false;
-		    }
+                while (!accepted)
+                {
+                    send("Name: ");
+                    String tempName = streamIn.readUTF();
+                    send("Passwort: ");
+                    String tempPasswort = streamIn.readUTF();
+                    if (CheckAccount(tempName, tempPasswort))
+                    {
+                        name = tempName;
+                        server.sendJoined(ID);
+                        accepted = true;
+
+                    }
+                    else
+                    {
+                        send("Access denied");
+                        server.remove(ID);
+                        accepted = false;
+                    }
+                }
                 server.handle(ID, streamIn.readUTF());
             }
             catch(IOException ioe)
@@ -210,5 +245,40 @@ class ChatServerThread extends Thread
             streamIn.close();
         if (streamOut != null)
             streamOut.close();
+    }
+    public boolean CheckAccount(String name, String passwort)
+    {
+        boolean check = false;
+        File file = new  File("./Accounts");
+        file.mkdir();
+        Boolean exist = new File("./Accounts/"+ name +".txt").isFile();
+        try
+        {
+            if (!exist)
+            {
+                File fileAccount = new File("./Accounts/" + name + ".txt");
+                fileAccount.createNewFile();
+                BufferedWriter writer = new BufferedWriter(new FileWriter(fileAccount));
+                writer.write(passwort);
+                writer.close();
+                check = true;
+                System.out.println("New Account " + name + " made");
+            }
+            else
+            {
+
+                BufferedReader in = new BufferedReader(new FileReader("./Accounts/" + name + ".txt"));
+                String inhalt = in.readLine();
+                if (inhalt.equals(passwort))
+                {
+                    check = true;
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        return check;
     }
 }
