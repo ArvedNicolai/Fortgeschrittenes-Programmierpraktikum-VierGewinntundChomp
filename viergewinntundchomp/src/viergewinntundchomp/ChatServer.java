@@ -71,7 +71,11 @@ public class ChatServer implements Runnable
         ChatServerThread client = clients[FindClient(ID)];
         for (int i = 0; i < clientCount; i++)
         {
-            clients[i].Send(client.name + " joined");
+            if (clients[i].accepted)
+            {
+                clients[i].Send(client.name + " joined");
+            }
+
         }
         client.Send("Zurzeit im Raum: " + GetList());
     }
@@ -87,7 +91,10 @@ public class ChatServer implements Runnable
             String message = client.name + ": " + input;
             for (int i = 0; i < clientCount; i++)
             {
-                clients[i].Send(message);
+                if (clients[i].accepted)
+                {
+                    clients[i].Send(message);
+                }
                 if (input.equals(".bye"))
                 {
                     clients[i].Send(client.name + " disconnected");
@@ -148,22 +155,22 @@ public class ChatServer implements Runnable
     }
     public String GetList()
     {
-        String namen = "[";
-        for (int i = 0; i < clientCount; i++)
+        String namen = "]";
+        for (int i = clientCount - 1; i >= 0; i--)
         {
             if (clients[i].name != null)
             {
-                if (i < clientCount - 1)
+                if (i > 0)
                 {
-                    namen = namen + clients[i].name + ", ";
+                    namen = ", " + clients[i].name + namen;
                 }
                 else
                 {
-                    namen = namen + clients[i].name;
+                    namen = clients[i].name + namen;
                 }
             }
         }
-        namen = namen + "]";
+        namen ="[" + namen;
         return namen;
     }
 }
