@@ -8,18 +8,21 @@ public class ChatServer implements Runnable
     private Thread thread = null;
     private int clientCount = 0;
 
+    public static void main(String args[])
+    {
+        ChatServer server = new ChatServer(5555);
+    }
     public ChatServer(int port)
     {
         try
         {
-            System.out.println("Binding to port " + port + ", please wait  ...");
             server = new ServerSocket(port);
-            System.out.println("Server started: " + server);
+            System.out.println("Server gestartet: " + server);
             start();
         }
-        catch(IOException ioe)
+        catch(IOException e)
         {
-            System.out.println("Can not bind to port " + port + ": " + ioe.getMessage()); }
+            System.out.println("Ungültiger Port " + port + ": " + e.getMessage()); }
         }
     public void run()
     {
@@ -27,12 +30,13 @@ public class ChatServer implements Runnable
         {
             try
             {
-                System.out.println("Waiting for a client ...");
-                addThread(server.accept());
+                System.out.println("Wartet auf Clients");
+                AddThread(server.accept());
             }
-            catch(IOException ioe)
+            catch(IOException e)
             {
-                System.out.println("Server accept error: " + ioe); stop();
+                System.out.println("Server accept error: " + e);
+                stop();
             }
         }
     }
@@ -48,73 +52,79 @@ public class ChatServer implements Runnable
     {
         if (thread != null)
         {
-            thread.stop(); //deprecated
             thread = null;
         }
     }
-    private int findClient(int ID)
+    private int FindClient(int ID)
     {
         for (int i = 0; i < clientCount; i++)
-        if (clients[i].getID() == ID)
-            return i;
+        {
+            if (clients[i].getID() == ID)
+            {
+                return i;
+            }
+        }
         return -1;
     }
-    public void sendJoined(int ID)
+    public void SendJoined(int ID)
     {
-        ChatServerThread client = clients[findClient(ID)];
+        ChatServerThread client = clients[FindClient(ID)];
         for (int i = 0; i < clientCount; i++)
         {
-            clients[i].send(client.name + " joined");
+            clients[i].Send(client.name + " joined");
         }
-        client.send("Zurzeit im Raum: " +getList());
+        client.Send("Zurzeit im Raum: " + GetList());
     }
-    public synchronized void handle(int ID, String input)
+    public synchronized void SendMessage(int ID, String input)
     {
-        ChatServerThread client = clients[findClient(ID)];
-        if (input.equals("getList"))
+        ChatServerThread client = clients[FindClient(ID)];
+        if (input.equals("getList") || input.equals("getlist"))
         {
-            client.send(getList());
+            client.Send(GetList());
         }
         else
         {
             String message = client.name + ": " + input;
             for (int i = 0; i < clientCount; i++)
             {
-                clients[i].send(message);
+                clients[i].Send(message);
                 if (input.equals(".bye"))
                 {
-                    clients[i].send(client.name + " disconnected");
+                    clients[i].Send(client.name + " disconnected");
                 }
             }
             if (input.equals(".bye"))
             {
-                remove(ID);
+                Remove(ID);
             }
         }
     }
-    public synchronized void remove(int ID)
+    public synchronized void Remove(int ID)
     {
-        int pos = findClient(ID);
+        int pos = FindClient(ID);
         if (pos >= 0)
         {
             ChatServerThread toTerminate = clients[pos];
-            System.out.println("Removing client thread " + ID + " at " + pos);
-            if (pos < clientCount-1)
+            System.out.println("Client Thread " + ID + " auf Platz " + pos + " wird entfernt");
+            if (pos < clientCount - 1)
+            {
                 for (int i = pos+1; i < clientCount; i++)
+                {
                     clients[i-1] = clients[i];
+                }
+            }
             clientCount--;
             try
             {
                 toTerminate.close();
             }
-            catch(IOException ioe)
+            catch(IOException e)
             {
-                System.out.println("Error closing thread: " + ioe);
+                System.out.println("Error closing thread: " + e);
             }
-            toTerminate.stop(); //deprecated
         }
     }
-    private void addThread(Socket socket)
+    private void AddThread(Socket socket)
     {
         if (clientCount < clients.length)
         {
@@ -126,37 +136,35 @@ public class ChatServer implements Runnable
                 clients[clientCount].start();
                 clientCount++;
             }
-            catch(IOException ioe)
+            catch(IOException e)
             {
-                System.out.println("Error opening thread: " + ioe);
+                System.out.println("Error opening thread: " + e);
             }
         }
         else
-            System.out.println("Client refused: maximum " + clients.length + " reached.");
+        {
+            System.out.println("Maximale Anzahl von " + clients.length + " Clients erreicht.");
+        }
     }
-    public String getList()
+    public String GetList()
     {
-	String namen = "[";
-	for (int i = 0; i < clientCount; i++)
-	    {
-		    if (clients[i].name != null)
-		    {
-		        if (i < clientCount - 1)
+        String namen = "[";
+        for (int i = 0; i < clientCount; i++)
+        {
+            if (clients[i].name != null)
+            {
+                if (i < clientCount - 1)
                 {
                     namen = namen + clients[i].name + ", ";
                 }
-		        else
+                else
                 {
                     namen = namen + clients[i].name;
                 }
-		    }
-	    }
-	namen = namen + "]";
-	return namen;
-    }
-    public static void main(String args[])
-    {
-        ChatServer server = new ChatServer(5555);
+            }
+        }
+        namen = namen + "]";
+        return namen;
     }
 }
 
@@ -165,10 +173,10 @@ class ChatServerThread extends Thread
     private ChatServer server = null;
     private Socket socket = null;
     private int ID = -1;
-    DataInputStream streamIn = null;
-    DataOutputStream streamOut = null;
-    boolean accepted = false;
-    String name;
+    private DataInputStream streamIn = null;
+    private DataOutputStream streamOut = null;
+    public boolean accepted = false;
+    public String name;
 
     public ChatServerThread(ChatServer server, Socket socket)
     {
@@ -177,18 +185,17 @@ class ChatServerThread extends Thread
         this.socket = socket;
         ID = socket.getPort();
     }
-    public void send(String msg)
+    public void Send(String msg)
     {
         try
         {
             streamOut.writeUTF(msg);
             streamOut.flush();
         }
-        catch(IOException ioe)
+        catch(IOException e)
         {
-            System.out.println(ID + " ERROR sending: " + ioe.getMessage());
-            server.remove(ID);
-            stop(); //deprecated
+            System.out.println(ID + " ERROR sending: " + e.getMessage());
+            server.Remove(ID);
         }
     }
     public int getID()
@@ -202,35 +209,43 @@ class ChatServerThread extends Thread
         {
             try
             {
-                while (!accepted)
+                if (accepted)
                 {
-                    send("Name: ");
+                    String msg = streamIn.readUTF();
+                    server.SendMessage(ID, msg);
+                    if (msg.equals(".bye"))
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    Send("Name: ");
                     String tempName = streamIn.readUTF();
-                    send("Passwort: ");
+                    Send("Passwort: ");
                     String tempPasswort = streamIn.readUTF();
                     if (CheckAccount(tempName, tempPasswort))
                     {
                         name = tempName;
-                        server.sendJoined(ID);
+                        server.SendJoined(ID);
                         accepted = true;
 
                     }
                     else
                     {
-                        send("Access denied");
-                        server.remove(ID);
-                        accepted = false;
+                        Send("Access denied");
+                        System.out.println("Stopping Server Thread " + ID);
+                        break;
                     }
                 }
-                server.handle(ID, streamIn.readUTF());
             }
-            catch(IOException ioe)
+            catch(IOException e)
             {
-                System.out.println(ID + " ERROR reading: " + ioe.getMessage());
-                server.remove(ID);
-                stop(); //deprecated
+                System.out.println(ID + " ERROR reading: " + e.getMessage());
+                break;
             }
         }
+        server.Remove(ID);
     }
     public void open() throws IOException
     {
@@ -240,11 +255,17 @@ class ChatServerThread extends Thread
     public void close() throws IOException
     {
         if (socket != null)
+        {
             socket.close();
+        }
         if (streamIn != null)
+        {
             streamIn.close();
+        }
         if (streamOut != null)
+        {
             streamOut.close();
+        }
     }
     public boolean CheckAccount(String name, String passwort)
     {
