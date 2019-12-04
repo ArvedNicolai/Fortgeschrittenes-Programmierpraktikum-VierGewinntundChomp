@@ -8,23 +8,30 @@ public class ChatClient implements Runnable
     private BufferedReader console = null;
     private DataOutputStream streamOut = null;
     private ChatClientThread client = null;
+    private boolean anmelden = true;
+
+    public static void main(String args[])
+    {
+        ChatClient client = null;
+        client = new ChatClient("localhost", 5555);
+    }
 
     public ChatClient(String serverName, int serverPort)
     {
-        System.out.println("Establishing connection. Please wait ...");
+        System.out.println("Verbindung wird aufgebaut");
         try
         {
             socket = new Socket(serverName, serverPort);
             System.out.println("Connected: " + socket);
             start();
         }
-        catch(UnknownHostException uhe)
+        catch(UnknownHostException e)
         {
-            System.out.println("Host unknown: " + uhe.getMessage());
+            System.out.println("Host unknown: " + e.getMessage());
         }
-        catch(IOException ioe)
+        catch(IOException e)
         {
-            System.out.println("Unexpected exception: " + ioe.getMessage());
+            System.out.println("Unexpected exception: " + e.getMessage());
         }
     }
     public void run()
@@ -33,25 +40,30 @@ public class ChatClient implements Runnable
         {
             try
             {
-                streamOut.writeUTF(console.readLine()); //deprecated (readLine())
+                String msg = console.readLine();
+                if (anmelden)
+                {
+                    client.name = msg;
+                    anmelden = false;
+                }
+                streamOut.writeUTF(msg);
                 streamOut.flush();
             }
-            catch(IOException ioe)
+            catch(IOException e)
             {
-                System.out.println("Sending error : " + ioe.getMessage());
+                System.out.println("Sending error : " + e.getMessage());
                 stop();
             }
         }
     }
-    public void handle(String msg)
+    public void Message(String msg)
     {
-        if (msg.equals(".bye"))
+        System.out.println(msg);
+        if (msg.equals("Access denied") || msg.equals((client.name + " disconnected")))
         {
             System.out.println("Good bye. Press RETURN to exit ...");
             stop();
         }
-        else
-            System.out.println(msg);
     }
     public void start() throws IOException
     {
@@ -68,29 +80,28 @@ public class ChatClient implements Runnable
     {
         if (thread != null)
         {
-            thread.stop(); //deprecated
             thread = null;
         }
         try
         {
             if (console != null)
+            {
                 console.close();
+            }
             if (streamOut != null)
+            {
                 streamOut.close();
+            }
             if (socket != null)
+            {
                 socket.close();
+            }
         }
-        catch(IOException ioe)
+        catch(IOException e)
         {
-            System.out.println("Error closing ...");
+            System.out.println("Error closing");
         }
         client.close();
-        client.stop(); //deprecated
-    }
-    public static void main(String args[])
-    {
-        ChatClient client = null;
-        client = new ChatClient("localhost", 5555);
     }
 }
 
@@ -99,6 +110,7 @@ class ChatClientThread extends Thread
     private Socket socket = null;
     private ChatClient client = null;
     private DataInputStream streamIn = null;
+    public String name;
 
     public ChatClientThread(ChatClient client, Socket socket)
     {
@@ -113,9 +125,9 @@ class ChatClientThread extends Thread
         {
             streamIn  = new DataInputStream(socket.getInputStream());
         }
-        catch(IOException ioe)
+        catch(IOException e)
         {
-            System.out.println("Error getting input stream: " + ioe);
+            System.out.println("Error getting input stream: " + e);
             client.stop();
         }
     }
@@ -124,11 +136,13 @@ class ChatClientThread extends Thread
         try
         {
             if (streamIn != null)
+            {
                 streamIn.close();
+            }
         }
-        catch(IOException ioe)
+        catch(IOException e)
         {
-            System.out.println("Error closing input stream: " + ioe);
+            System.out.println("Error closing input stream: " + e);
         }
     }
     public void run()
@@ -137,12 +151,18 @@ class ChatClientThread extends Thread
         {
             try
             {
-                client.handle(streamIn.readUTF());
+                String msg = streamIn.readUTF();
+                client.Message(msg);
+                if (msg.equals("Access denied") || msg.equals((name + " disconnected")))
+                {
+                    break;
+                }
             }
-            catch(IOException ioe)
+            catch(IOException e)
             {
-                System.out.println("Listening error: " + ioe.getMessage());
+                System.out.println("Listening error: " + e.getMessage());
                 client.stop();
+                break;
             }
         }
     }
