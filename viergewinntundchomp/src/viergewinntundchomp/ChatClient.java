@@ -10,10 +10,17 @@ public class ChatClient implements Runnable
     private ChatClientThread client = null;
     private boolean anmelden = true;
 
-    public static void main(String args[])
+    public static void main(String[] args)
     {
-        ChatClient client = null;
-        client = new ChatClient("localhost", 5555);
+        ChatClient client = new ChatClient("localhost", 5555);
+        try
+        {
+            client.start();
+        }
+        catch(IOException e)
+        {
+            System.out.println("Unexpected exception: " + e.getMessage());
+        }
     }
 
     public ChatClient(String serverName, int serverPort)
@@ -23,7 +30,6 @@ public class ChatClient implements Runnable
         {
             socket = new Socket(serverName, serverPort);
             System.out.println("Connected: " + socket);
-            start();
         }
         catch(UnknownHostException e)
         {
@@ -107,8 +113,8 @@ public class ChatClient implements Runnable
 
 class ChatClientThread extends Thread
 {
-    private Socket socket = null;
-    private ChatClient client = null;
+    private Socket socket;
+    private ChatClient client;
     private DataInputStream streamIn = null;
     public String name;
 
