@@ -65,9 +65,9 @@ public class ChatClient implements Runnable
     public void Message(String msg)
     {
         System.out.println(msg);
-        if (msg.equals("Access denied") || msg.equals((client.name + " disconnected")))
+        if (msg.equals("Access denied") || msg.equals("Goodbye"))
         {
-            System.out.println("Good bye. Press RETURN to exit ...");
+            System.out.println("Press RETURN to exit");
             stop();
         }
     }
@@ -159,7 +159,7 @@ class ChatClientThread extends Thread
             {
                 String msg = streamIn.readUTF();
                 client.Message(msg);
-                if (msg.equals("Access denied") || msg.equals((name + " disconnected")))
+                if (msg.equals("Access denied") || msg.equals("Goodbye"))
                 {
                     break;
                 }
@@ -173,4 +173,3 @@ class ChatClientThread extends Thread
         }
     }
 }
-
