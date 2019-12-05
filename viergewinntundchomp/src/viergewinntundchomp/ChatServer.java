@@ -3,14 +3,15 @@ import java.io.*;
 
 public class ChatServer implements Runnable
 {
-    private ChatServerThread clients[] = new ChatServerThread[50];
+    private ChatServerThread[] clients = new ChatServerThread[50];
     private ServerSocket server = null;
     private Thread thread = null;
     private int clientCount = 0;
 
-    public static void main(String args[])
+    public static void main(String[] args)
     {
         ChatServer server = new ChatServer(5555);
+        server.start();
     }
     public ChatServer(int port)
     {
@@ -18,12 +19,11 @@ public class ChatServer implements Runnable
         {
             server = new ServerSocket(port);
             System.out.println("Server gestartet: " + server);
-            start();
         }
         catch(IOException e)
         {
             System.out.println("Ungültiger Port " + port + ": " + e.getMessage()); }
-        }
+    }
     public void run()
     {
         while (thread != null)
@@ -177,9 +177,9 @@ public class ChatServer implements Runnable
 
 class ChatServerThread extends Thread
 {
-    private ChatServer server = null;
-    private Socket socket = null;
-    private int ID = -1;
+    private ChatServer server;
+    private Socket socket;
+    private int ID;
     private DataInputStream streamIn = null;
     private DataOutputStream streamOut = null;
     public boolean accepted = false;
@@ -279,13 +279,12 @@ class ChatServerThread extends Thread
         boolean check = false;
         File file = new  File("./Accounts");
         file.mkdir();
-        Boolean exist = new File("./Accounts/"+ name +".txt").isFile();
+        boolean exist = new File("./Accounts/"+ name +".txt").isFile();
         try
         {
             if (!exist)
             {
                 File fileAccount = new File("./Accounts/" + name + ".txt");
-                fileAccount.createNewFile();
                 BufferedWriter writer = new BufferedWriter(new FileWriter(fileAccount));
                 writer.write(passwort);
                 writer.close();
