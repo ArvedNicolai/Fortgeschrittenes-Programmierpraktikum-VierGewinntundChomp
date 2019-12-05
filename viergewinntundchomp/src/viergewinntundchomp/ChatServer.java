@@ -66,23 +66,31 @@ public class ChatServer implements Runnable
         }
         return -1;
     }
-    public void SendJoined(int ID)
+    public void JoinMessage(ChatServerThread client)
     {
-        ChatServerThread client = clients[FindClient(ID)];
+        client.Send("Zurzeit im Raum: " + GetList());
         for (int i = 0; i < clientCount; i++)
         {
             if (clients[i].accepted)
             {
                 clients[i].Send(client.name + " joined");
             }
-
         }
-        client.Send("Zurzeit im Raum: " + GetList());
+    }
+    public void LeaveMessage(String name)
+    {
+        for (int i = 0; i < clientCount; i++)
+        {
+            if (clients[i].accepted)
+            {
+                clients[i].Send(name + " disconnected");
+            }
+        }
     }
     public synchronized void SendMessage(int ID, String input)
     {
         ChatServerThread client = clients[FindClient(ID)];
-        if (input.equals("getList") || input.equals("getlist"))
+        if (input.equals("/getlist"))
         {
             client.Send(GetList());
         }
@@ -95,14 +103,10 @@ public class ChatServer implements Runnable
                 {
                     clients[i].Send(message);
                 }
-                if (input.equals(".bye"))
-                {
-                    clients[i].Send(client.name + " disconnected");
-                }
             }
             if (input.equals(".bye"))
             {
-                Remove(ID);
+                LeaveMessage(client.name);
             }
         }
     }
@@ -155,22 +159,28 @@ public class ChatServer implements Runnable
     }
     public String GetList()
     {
-        String namen = "]";
-        for (int i = clientCount - 1; i >= 0; i--)
+        int j = 0;
+        String namen = "[";
+        ChatServerThread[] acceptedClients = new ChatServerThread[50];
+        for (int i = 0; i < clientCount; i++)
         {
-            if (clients[i].name != null)
+            if (clients[i].accepted)
             {
-                if (i > 0)
-                {
-                    namen = ", " + clients[i].name + namen;
-                }
-                else
-                {
-                    namen = clients[i].name + namen;
-                }
+                acceptedClients[j++] = clients[i];
             }
         }
-        namen ="[" + namen;
+        for (int i = 0; i < j; i++)
+        {
+            if (i < j - 1)
+            {
+                namen = namen + acceptedClients[i].name + ", ";
+            }
+            else
+            {
+                namen = namen + acceptedClients[i].name;
+            }
+        }
+        namen = namen + "]";
         return namen;
     }
 }
@@ -214,18 +224,30 @@ class ChatServerThread extends Thread
         System.out.println("Server Thread " + ID + " running.");
         while (true)
         {
-            try
+            if (accepted)
             {
-                if (accepted)
+                try
                 {
                     String msg = streamIn.readUTF();
                     server.SendMessage(ID, msg);
                     if (msg.equals(".bye"))
                     {
+                        Send("Goodbye");
+                        server.Remove(ID);
                         break;
                     }
                 }
-                else
+                catch (IOException e)
+                {
+                    System.out.println(ID + " ERROR reading: " + e.getMessage());
+                    server.Remove(ID);
+                    server.LeaveMessage(name);
+                    break;
+                }
+            }
+            else
+            {
+                try
                 {
                     Send("Name: ");
                     String tempName = streamIn.readUTF();
@@ -234,9 +256,8 @@ class ChatServerThread extends Thread
                     if (CheckAccount(tempName, tempPasswort))
                     {
                         name = tempName;
-                        server.SendJoined(ID);
                         accepted = true;
-
+                        server.JoinMessage(this);
                     }
                     else
                     {
@@ -245,14 +266,13 @@ class ChatServerThread extends Thread
                         break;
                     }
                 }
-            }
-            catch(IOException e)
-            {
-                System.out.println(ID + " ERROR reading: " + e.getMessage());
-                break;
+                catch (IOException e)
+                {
+                    System.out.println(ID + " ERROR reading: " + e.getMessage());
+                    break;
+                }
             }
         }
-        server.Remove(ID);
     }
     public void open() throws IOException
     {
