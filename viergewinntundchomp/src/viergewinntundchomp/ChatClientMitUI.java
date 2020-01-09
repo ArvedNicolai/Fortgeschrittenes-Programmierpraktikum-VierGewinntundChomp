@@ -5,43 +5,33 @@ import java.awt.*;
 import java.awt.event.*;
 
 
-public class ChatClient implements Runnable
+public class ChatClient extends JFrame implements Runnable, ActionListener
 {
     private Socket socket = null;
     private Thread thread = null;
     private BufferedReader console = null;
     public DataOutputStream streamOut = null;
     private ChatClientThread client = null;
-    private boolean anmelden = true, getList = false;
-    private String userList;
-    static ClientGUI ui;
+    private boolean anmelden = true, getList = false, connected;
+    private JLabel label;
+    private JTextField tf, tfServer, tfPort, tfName, tfPw;
+    private JButton login, logout;
+    private JTextArea ta, user;
+    private int defaultPort;
+    private String defaultHost;
+    private JPanel southPanel, nameUndPasswort;
 
     public static void main(String[] args)
     {
-        ui = new ClientGUI("localhost", 5555);
+        ChatClient chatClient = new ChatClient("localhost", 5555);
 
     }
 
     public ChatClient(String serverName, int serverPort)
     {
-        ui.append("Verbindung wird aufgebaut\n");
-        System.out.println("Verbindung wird aufgebaut");
-        try
-        {
-            socket = new Socket(serverName, serverPort);
-            ui.append("Connected: " + socket + "\n");
-            System.out.println("Connected: " + socket);
-        }
-        catch(UnknownHostException e)
-        {
-            System.out.println("Host unknown: " + e.getMessage());
-            ui.disconnect();
-        }
-        catch(IOException e)
-        {
-            System.out.println("Unexpected exception: " + e.getMessage());
-            ui.disconnect();
-        }
+        super("Chat Client");
+        createUI(serverName, serverPort);
+
     }
     public void run()
     {
@@ -60,8 +50,7 @@ public class ChatClient implements Runnable
             }
             catch(IOException e)
             {
-                System.out.println("Sending error : " + e.getMessage());
-                ui.disconnect();
+                connectionFailed("Sending error : " + e.getMessage());
                 stop();
             }
         }
@@ -71,27 +60,30 @@ public class ChatClient implements Runnable
         if (msg.equals("userListBeginn"))
         {
             getList = true;
-            userList = "";
             return;
         }
         if (msg.equals("userListEnde"))
         {
             getList = false;
-            ui.user.setText(userList);
             return;
         }
         if (!getList)
         {
-            ui.append(msg + "\n");
-            if (msg.equals("Access denied") || msg.equals("Goodbye"))
+            append(msg + "\n");
+            if (msg.equals("Anmeldung fehlgeschlagen"))
             {
-                ui.disconnect();
+                connectionFailed(msg);
+                stop();
+            }
+            if (msg.equals("Auf Wiedersehen"))
+            {
+                disconnect();
                 stop();
             }
         }
         else
         {
-            userList = userList + msg + "\n";
+            user.setText(msg);
         }
     }
     public void start() throws IOException
@@ -128,11 +120,232 @@ public class ChatClient implements Runnable
         }
         catch(IOException e)
         {
-            System.out.println("Error closing");
-            ui.disconnect();
+            connectionFailed("Error closing");
         }
         client.close();
     }
+
+    //Aufgabenblatt3 Methoden Anfang
+
+    void createUI(String host, int port)
+    {
+        defaultPort = port;
+        defaultHost = host;
+
+        //alle Textfelder
+        tfServer = new JTextField(host);
+        tfPort = new JTextField("" + port);
+        tfPort.setHorizontalAlignment(SwingConstants.RIGHT);
+        tfName = new JTextField("Anonymous");
+        tfName.setBackground(Color.WHITE);
+        tfPw = new JTextField("Passwort");
+        tfPw.setBackground(Color.WHITE);
+
+        //Serveradresse + Portnummer Felder
+        southPanel = new JPanel(new GridLayout(3,1));
+        JPanel serverUndPort = new JPanel(new GridLayout(1,5, 1, 3));
+        serverUndPort.add(new JLabel("Server Address:  "));
+        serverUndPort.add(tfServer);
+        serverUndPort.add(new JLabel("Port Number:  "));
+        serverUndPort.add(tfPort);
+        serverUndPort.add(new JLabel(""));
+        southPanel.add(serverUndPort);
+
+        label = new JLabel("Unten name und Passwort eingeben", SwingConstants.CENTER);
+        southPanel.add(label);
+
+        //Username + Passwort Felder
+        nameUndPasswort = new JPanel(new GridLayout(1,4,1,3));
+        JLabel username = new JLabel("Username: ");
+        JLabel passwort = new JLabel("Passwort: ");
+        nameUndPasswort.add(username);
+        nameUndPasswort.add(tfName);
+        nameUndPasswort.add(passwort);
+        nameUndPasswort.add(tfPw);
+        southPanel.add(nameUndPasswort);
+        add("South", southPanel);
+
+        tf = new JTextField();
+
+        //Chat
+        ta = new JTextArea("", 80, 80);
+        JPanel centerPanel = new JPanel(new GridLayout(1,1));
+        centerPanel.add(new JScrollPane(ta));
+        ta.setEditable(false);
+        add("Center", centerPanel);
+
+        //Userlist
+        JPanel east = new JPanel();
+        user = new JTextArea("Mit keinem Chatraum verbunden");
+        user.setEditable(false);
+        east.add(user);
+        add("East", user);
+
+        //Knöpfe
+        login = new JButton("Login");
+        login.addActionListener(this);
+        logout = new JButton("Logout");
+        logout.addActionListener(this);
+        logout.setEnabled(false);
+        JPanel northPanel = new JPanel();
+        northPanel.add(login);
+        northPanel.add(logout);
+        add("North", northPanel);
+
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setSize(600, 600);
+        setVisible(true);
+        tfName.requestFocus();
+    }
+
+    void append(String str)
+    {
+        ta.append(str);
+        ta.setCaretPosition(ta.getText().length() - 1);
+    }
+
+    public void actionPerformed(ActionEvent e)
+    {
+        Object o = e.getSource();
+        if(o == logout)
+        {
+            try
+            {
+                if (connected)
+                {
+                    streamOut.writeUTF(".bye");
+                }
+            }
+            catch (IOException ex)
+            {
+                connectionFailed("Error: " + ex.getMessage());
+                return;
+            }
+            return;
+        }
+        if(connected)
+        {
+            try
+            {
+                streamOut.writeUTF(tf.getText());
+            }
+            catch (IOException ex)
+            {
+                ex.printStackTrace();
+            }
+            tf.setText("");
+            return;
+        }
+        if(o == login)
+        {
+
+            append("Verbindung wird aufgebaut\n");
+            String username = tfName.getText().trim();
+            if(username.length() == 0)
+                return;
+            String passwort = tfPw.getText().trim();
+            if (passwort.length() == 0)
+                return;
+            String server = tfServer.getText().trim();
+            if(server.length() == 0)
+                return;
+            String portNumber = tfPort.getText().trim();
+            if(portNumber.length() == 0)
+                return;
+            ta.setText("");
+
+            int port = 0;
+            try
+            {
+                port = Integer.parseInt(portNumber);
+                socket = new Socket(server, port);
+                append("Connected: " + socket + "\n");
+                start();
+            }
+            catch(UnknownHostException ex)
+            {
+                connectionFailed("Host unknown: " + ex.getMessage());
+                return;
+            }
+            catch(IOException ex)
+            {
+                connectionFailed("Unexpected exception: " + ex.getMessage());
+                return;
+            }
+            catch (Exception ex)
+            {
+                connectionFailed("Ungültiger Port: " + ex.getMessage());
+                return;
+            }
+
+            tf = new JTextField("Anonymous");
+            tf.setBackground(Color.WHITE);
+            southPanel.remove(nameUndPasswort);
+            southPanel.add(tf);
+            tf.setText("");
+            label.setText("Als " + username + " angemeldet");
+            connected = true;
+            try
+            {
+                streamOut.writeUTF(username);
+                streamOut.writeUTF(passwort);
+            }
+            catch (IOException ex)
+            {
+                connectionFailed("Error: " + ex.getMessage());
+                return;
+            }
+            login.setEnabled(false);
+            logout.setEnabled(true);
+            tfServer.setEditable(false);
+            tfPort.setEditable(false);
+            tf.addActionListener(this);
+        }
+    }
+
+    void disconnect()
+    {
+        login.setEnabled(true);
+        logout.setEnabled(false);
+        tf.setText("");
+        southPanel.remove(tf);
+        southPanel.add(nameUndPasswort);
+        label.setText("Unten Name und Passwort eingeben");
+        tfName.setText("Anonymous");
+        tfPw.setText("Passwort");
+        tfPort.setText("" + defaultPort);
+        tfServer.setText(defaultHost);
+        user.setText("Mit keinem Chatraum verbunden");
+        tfServer.setEditable(true);
+        tfPort.setEditable(true);
+        tf.removeActionListener(this);
+        connected = false;
+    }
+
+    void connectionFailed(String msg)
+    {
+        login.setEnabled(true);
+        logout.setEnabled(false);
+        southPanel.remove(tf);
+        southPanel.add(nameUndPasswort);
+        label.setText("Unten Name und Passwort eingeben");
+        tfName.setText("Anonymous");
+        tfPw.setText("Passwort");
+        tfPort.setText("" + defaultPort);
+        tfServer.setText(defaultHost);
+        user.setText("Mit keinem Chatraum verbunden");
+        tfServer.setEditable(true);
+        tfPort.setEditable(true);
+        tf.removeActionListener(this);
+        append(msg);
+        if (connected)
+        {
+            append("\nDisconnecting from the Server");
+        }
+        connected = false;
+    }
+
+    //Aufgabenblatt3 Methoden Ende
 }
 
 class ChatClientThread extends Thread
@@ -157,8 +370,7 @@ class ChatClientThread extends Thread
         }
         catch(IOException e)
         {
-            System.out.println("Error getting input stream: " + e);
-            client.ui.disconnect();
+            client.connectionFailed("Error getting input stream " + e.getMessage());
             client.stop();
         }
     }
@@ -173,7 +385,8 @@ class ChatClientThread extends Thread
         }
         catch(IOException e)
         {
-            System.out.println("Error closing input stream: " + e);
+            client.connectionFailed("Error closing input stream: " + e.getMessage());
+            client.stop();
         }
     }
     public void run()
@@ -184,294 +397,17 @@ class ChatClientThread extends Thread
             {
                 String msg = streamIn.readUTF();
                 client.message(msg);
-                if (msg.equals("Access denied") || msg.equals("Goodbye"))
+                if (msg.equals("Anmeldung fehlgeschlagen") || msg.equals("Auf Wiedersehen"))
                 {
                     break;
                 }
             }
             catch(IOException e)
             {
-                System.out.println("Listening error: " + e.getMessage());
-                client.ui.disconnect();
+                client.connectionFailed("Listening error " +  e.getMessage());
                 client.stop();
                 break;
             }
         }
-    }
-}
-class ClientGUI extends JFrame implements ActionListener
-{
-
-    // will first hold "Username:", later on "Enter message"
-    private JLabel label;
-    // to hold the Username and later on the messages
-    // to hold the server address an the port number
-    private JTextField tf, tfServer, tfPort, tfName, tfPw;
-    // to Logout and get the list of the users
-    private JButton login, logout, whoIsIn;
-    // for the chat room
-    public JTextArea ta, user;
-    // if it is for connection
-    private boolean connected;
-    // the Client object
-    private ChatClient client;
-    // the default port number
-    private int defaultPort;
-    private String defaultHost;
-    public JPanel southPanel, nameUndPasswort;
-
-    // Constructor connection receiving a socket number
-    ClientGUI(String host, int port)
-    {
-
-        super("Chat Client");
-        defaultPort = port;
-        defaultHost = host;
-
-        // The NorthPanel with:
-        southPanel = new JPanel(new GridLayout(3,1));
-        // the server name and the port number
-        JPanel serverAndPort = new JPanel(new GridLayout(1,5, 1, 3));
-        nameUndPasswort = new JPanel(new GridLayout(1,4,1,3));
-        // the two JTextField with default value for server address and port number
-        tfServer = new JTextField(host);
-        tfPort = new JTextField("" + port);
-        tfPort.setHorizontalAlignment(SwingConstants.RIGHT);
-
-        serverAndPort.add(new JLabel("Server Address:  "));
-        serverAndPort.add(tfServer);
-        serverAndPort.add(new JLabel("Port Number:  "));
-        serverAndPort.add(tfPort);
-        serverAndPort.add(new JLabel(""));
-        // adds the Server an port field to the GUI
-        southPanel.add(serverAndPort);
-
-        JLabel username = new JLabel("Username: ");
-        JLabel passwort = new JLabel("Passwort: ");
-        nameUndPasswort.add(username);
-        tfName = new JTextField("Anonymous");
-        tfPw = new JTextField("Passwort");
-        nameUndPasswort.add(tfName);
-        nameUndPasswort.add(passwort);
-        nameUndPasswort.add(tfPw);
-        tfName.setBackground(Color.WHITE);
-        tfPw.setBackground(Color.WHITE);
-        label = new JLabel("Unten name und Passwort eingeben", SwingConstants.CENTER);
-        southPanel.add(label);
-        southPanel.add(nameUndPasswort);
-        add("South", southPanel);
-
-        /* the Label and the TextField
-        label = new JLabel("Unten Name eingeben", SwingConstants.CENTER);
-        southPanel.add(label);
-        tf = new JTextField("Anonymous");
-        tf.setBackground(Color.WHITE);
-        southPanel.add(tf);
-        add("South", southPanel);
-
-         */
-
-        // The CenterPanel which is the chat room
-        ta = new JTextArea("", 80, 80);
-        JPanel centerPanel = new JPanel(new GridLayout(1,1));
-        centerPanel.add(new JScrollPane(ta));
-        ta.setEditable(false);
-        add("Center", centerPanel);
-
-        JPanel east = new JPanel();
-        user = new JTextArea(160,20);
-        user.setEditable(false);
-        east.add(new JScrollPane(user));
-        add("East", user);
-
-        // the 3 buttons
-        login = new JButton("Login");
-        login.addActionListener(this);
-        logout = new JButton("Logout");
-        logout.addActionListener(this);
-        logout.setEnabled(false);		// you have to login before being able to logout
-        /*whoIsIn = new JButton("Who is in");
-        whoIsIn.addActionListener(this);
-        whoIsIn.setEnabled(false);		// you have to login before being able to Who is in
-
-         */
-
-        JPanel northPanel = new JPanel();
-        northPanel.add(login);
-        northPanel.add(logout);
-        //southPanel.add(whoIsIn);
-        add("North", northPanel);
-
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(600, 600);
-        setVisible(true);
-        tfName.requestFocus();
-
-    }
-
-    // called by the Client to append text in the TextArea
-    void append(String str)
-    {
-        ta.append(str);
-        ta.setCaretPosition(ta.getText().length() - 1);
-    }
-    // called by the GUI is the connection failed
-    // we reset our buttons, label, textfield
-    void connectionFailed()
-    {
-        login.setEnabled(true);
-        logout.setEnabled(false);
-        //whoIsIn.setEnabled(false);
-        southPanel.remove(tf);
-        southPanel.add(nameUndPasswort);
-        label.setText("Unten Name und Passwort eingeben");
-        tfName.setText("Anonymous");
-        tfPw.setText("Passwort");
-        // reset port number and host name as a construction time
-        tfPort.setText("" + defaultPort);
-        tfServer.setText(defaultHost);
-        user.setText("");
-        // let the user change them
-        tfServer.setEditable(false);
-        tfPort.setEditable(false);
-        // don't react to a <CR> after the username
-        tf.removeActionListener(this);
-        connected = false;
-    }
-    void disconnect()
-    {
-        login.setEnabled(true);
-        logout.setEnabled(false);
-        //whoIsIn.setEnabled(false);
-        tf.setText("");
-        southPanel.remove(tf);
-        southPanel.add(nameUndPasswort);
-        label.setText("Unten Name und Passwort eingeben");
-        tfName.setText("Anonymous");
-        tfPw.setText("Passwort");
-        // reset port number and host name as a construction time
-        tfPort.setText("" + defaultPort);
-        tfServer.setText(defaultHost);
-        user.setText("");
-        // let the user change them
-        tfServer.setEditable(true);
-        tfPort.setEditable(true);
-        // don't react to a <CR> after the username
-        //tf.removeActionListener(this);
-        connected = false;
-    }
-    /*
-     * Button or JTextField clicked
-     */
-    public void actionPerformed(ActionEvent e)
-    {
-        Object o = e.getSource();
-        // if it is the Logout button
-        if(o == logout) {
-            try
-            {
-                if (connected)
-                {
-                    client.streamOut.writeUTF(".bye");
-                }
-                disconnect();
-            } catch (IOException ex)
-            {
-                ex.printStackTrace();
-            }
-            return;
-        }
-        // if it the who is in button
-        /*if(o == whoIsIn) {
-            client.sendMessage(new ChatMessage(ChatMessage.WHOISIN, ""));
-            return;
-        }
-
-         */
-        // ok it is coming from the JTextField
-        if(connected)
-        {
-            // just have to send the message
-            try
-            {
-                client.streamOut.writeUTF(tf.getText());
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-            tf.setText("");
-            return;
-        }
-
-
-        if(o == login)
-        {
-            // ok it is a connection request
-            String username = tfName.getText().trim();
-            // empty username ignore it
-            if(username.length() == 0)
-                return;
-            String passwort = tfPw.getText().trim();
-            if (passwort.length() == 0)
-                return;
-            // empty serverAddress ignore it
-            String server = tfServer.getText().trim();
-            if(server.length() == 0)
-                return;
-            // empty or invalid port numer, ignore it
-            String portNumber = tfPort.getText().trim();
-            if(portNumber.length() == 0)
-                return;
-            ta.setText("");
-            int port = 0;
-            try
-            {
-                port = Integer.parseInt(portNumber);
-            }
-            catch(Exception en)
-            {
-                return;   // nothing I can do if port number is not valid
-            }
-
-            // try creating a new Client with GUI
-            client = new ChatClient(server, port);
-            // test if we can start the Client
-            try
-            {
-                client.start();
-            } catch (IOException ex)
-            {
-                ex.printStackTrace();
-            }
-            tf = new JTextField("Anonymous");
-            tf.setBackground(Color.WHITE);
-            southPanel.remove(nameUndPasswort);
-            southPanel.add(tf);
-            tf.setText("");
-
-            label.setText("Als " + username + " angemeldet");
-            connected = true;
-
-            try
-            {
-                client.streamOut.writeUTF(username);
-                client.streamOut.writeUTF(passwort);
-            } catch (IOException ex)
-            {
-                ex.printStackTrace();
-            }
-
-
-            // disable login button
-            login.setEnabled(false);
-            // enable the 2 buttons
-            logout.setEnabled(true);
-            //whoIsIn.setEnabled(true);
-            // disable the Server and Port JTextField
-            tfServer.setEditable(false);
-            tfPort.setEditable(false);
-            // Action listener for when the user enter a message
-            tf.addActionListener(this);
-        }
-
     }
 }
