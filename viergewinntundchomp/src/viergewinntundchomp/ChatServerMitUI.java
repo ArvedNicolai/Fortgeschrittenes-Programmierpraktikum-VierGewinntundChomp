@@ -3,33 +3,28 @@ import java.io.*;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.Date;
+import java.sql.Timestamp;
 
-public class ChatServer implements Runnable
+public class ChatServer extends JFrame implements Runnable, ActionListener, WindowListener
 {
     private ChatServerThread[] clients = new ChatServerThread[50];
     private ServerSocket server = null;
     private Thread thread = null;
     private int clientCount = 0;
-    static ServerOberfläche ui;
+    private JButton stopStart;
+    private JTextArea chat, event, user;
+    private JTextField tPortNumber;
+    private Timestamp ts;
 
     public static void main(String[] args)
     {
-        ui = new ServerOberfläche(5555);
-
+        ChatServer server = new ChatServer(5555);
     }
     public ChatServer(int port)
     {
-        try
-        {
-            server = new ServerSocket(port);
-            userList();
-            ui.appendEvent("Server gestartet: " + server);
-            System.out.println("Server gestartet: " + server);
-        }
-        catch(IOException e)
-        {
-            System.out.println("Ungültiger Port " + port + ": " + e.getMessage());
-        }
+        super("Chat Server");
+        createUI(port);
     }
     public void run()
     {
@@ -37,14 +32,14 @@ public class ChatServer implements Runnable
         {
             try
             {
-                ui.appendEvent("Wartet auf Clients");
-                System.out.println("Wartet auf Clients");
+                appendEvent("Wartet auf Clients");
+                //System.out.println("Wartet auf Clients");
                 addThread(server.accept());
             }
             catch(IOException e)
             {
-                ui.appendEvent("Server accept error: " + e);
-                System.out.println("Server accept error: " + e);
+                appendEvent("Server accept error: " + e);
+                //System.out.println("Server accept error: " + e);
                 stop();
             }
         }
@@ -53,6 +48,9 @@ public class ChatServer implements Runnable
     {
         if (thread == null)
         {
+            appendEvent("Server gestartet: " + server);
+            //System.out.println("Server gestartet: " + server);
+            user.setText(userListString());
             thread = new Thread(this);
             thread.start();
         }
@@ -77,7 +75,7 @@ public class ChatServer implements Runnable
     }
     public void joinMessage(ChatServerThread client)
     {
-        // client.Send("Zurzeit im Raum: " + GetList());
+        String msg = client.name + " joined";
         for (int i = 0; i < clientCount; i++)
         {
             if (clients[i].accepted)
@@ -85,19 +83,21 @@ public class ChatServer implements Runnable
                 clients[i].send(client.name + " joined");
             }
         }
+        appendRoom(msg);
         sendList();
-        userList();
+        user.setText(userListString());
     }
     public void leaveMessage(String name)
     {
+        String msg = name + " disconnected";
         for (int i = 0; i < clientCount; i++)
         {
             if (clients[i].accepted)
             {
-                clients[i].send(name + " disconnected");
+                clients[i].send(msg);
             }
         }
-        sendList();
+        appendRoom(msg);
     }
     public synchronized void sendMessage(int ID, String input)
     {
@@ -115,7 +115,7 @@ public class ChatServer implements Runnable
             else
             {
                 String message = client.name + ": " + input;
-                ui.appendRoom(message);
+                appendRoom(message);
                 for (int i = 0; i < clientCount; i++)
                 {
                     if (clients[i].accepted)
@@ -132,8 +132,9 @@ public class ChatServer implements Runnable
         if (pos >= 0)
         {
             ChatServerThread toTerminate = clients[pos];
-            ui.appendEvent("Client Thread " + ID + " auf Platz " + pos + " wird entfernt");
-            System.out.println("Client Thread " + ID + " auf Platz " + pos + " wird entfernt");
+            toTerminate.accepted = false;
+            appendEvent("Client Thread " + ID + " auf Platz " + pos + " wird entfernt");
+            //System.out.println("Client Thread " + ID + " auf Platz " + pos + " wird entfernt");
             if (pos < clientCount - 1)
             {
                 for (int i = pos+1; i < clientCount; i++)
@@ -148,18 +149,19 @@ public class ChatServer implements Runnable
             }
             catch(IOException e)
             {
-                ui.appendEvent("Error closing thread: " + e);
-                System.out.println("Error closing thread: " + e);
+                appendEvent("Error closing thread: " + e);
+                //System.out.println("Error closing thread: " + e);
             }
         }
-        userList();
+        user.setText(userListString());
+        sendList();
     }
     private void addThread(Socket socket)
     {
         if (clientCount < clients.length)
         {
-            ui.appendEvent("Client accepted: " + socket);
-            System.out.println("Client accepted: " + socket);
+            appendEvent("Client accepted: " + socket);
+            //System.out.println("Client accepted: " + socket);
             clients[clientCount] = new ChatServerThread(this, socket);
             try
             {
@@ -169,48 +171,156 @@ public class ChatServer implements Runnable
             }
             catch(IOException e)
             {
-                ui.appendEvent("Error opening thread: " + e);
-                System.out.println("Error opening thread: " + e);
+                appendEvent("Error opening thread: " + e);
+                //System.out.println("Error opening thread: " + e);
             }
         }
         else
         {
-            ui.appendEvent("Maximale Anzahl von " + clients.length + " Clients erreicht.");
-            System.out.println("Maximale Anzahl von " + clients.length + " Clients erreicht.");
+            appendEvent("Maximale Anzahl von " + clients.length + " Clients erreicht.");
+            //System.out.println("Maximale Anzahl von " + clients.length + " Clients erreicht.");
         }
     }
     public void sendList()
     {
-        int j = 0;
-        ChatServerThread[] acceptedClients = new ChatServerThread[50];
+        for (int i = 0; i < getUser().length; i++)
+        {
+            getUser()[i].send("userListBeginn");
+            getUser()[i].send(userListString());
+            getUser()[i].send("userListEnde");
+        }
+    }
+    ChatServerThread[] getUser()
+    {
+        int k = 0,j = 0;
         for (int i = 0; i < clientCount; i++)
         {
             if (clients[i].accepted)
             {
-                acceptedClients[j++] = clients[i];
+                j++;
             }
         }
+        ChatServerThread[] acceptedClients = new ChatServerThread[j];
         for (int i = 0; i < j; i++)
         {
-            acceptedClients[i].send("userListBeginn");
-            for (int k = 0; k < j; k++)
-            {
-                acceptedClients[i].send(acceptedClients[k].name);
-            }
-            acceptedClients[i].send("userListEnde");
-        }
-    }
-    void userList()
-    {
-        ui.user.setText("Zurzeit in Raum:\n");
-        for (int i = 0; i < clientCount; i++)
-        {
             if (clients[i].accepted)
             {
-                ui.user.append(clients[i].name +"\n");
+                acceptedClients[k++] = clients[i];
             }
+
         }
+        return acceptedClients;
     }
+    String userListString()
+    {
+        String namen = "Zurzeit im Raum: \n";
+        for (int i = 0; i < getUser().length; i++)
+        {
+            namen = namen + getUser()[i].name + "\n";
+        }
+        return namen;
+    }
+    //Aufgabenblatt3 Methoden Anfang
+
+    void createUI(int port)
+    {
+        //Start und Stop Button
+        JPanel north = new JPanel();
+        north.add(new JLabel("Port number: "));
+        tPortNumber = new JTextField("" + port);
+        north.add(tPortNumber);
+        stopStart = new JButton("Start");
+        stopStart.addActionListener(this);
+        north.add(stopStart);
+        add("North", north);
+
+        //chat und eventlog
+        JPanel center = new JPanel(new GridLayout(2,1));
+        chat = new JTextArea(80,80);
+        chat.setEditable(false);
+        appendRoom("Chat room.\n");
+        center.add(new JScrollPane(chat));
+        event = new JTextArea(80,80);
+        event.setEditable(false);
+        appendEvent("Events log.\n");
+        center.add(new JScrollPane(event));
+        add("Center", center);
+
+        //Userliste
+        JPanel east = new JPanel();
+        user = new JTextArea("Server noch nicht gestartet");
+        user.setEditable(false);
+        east.add(user);
+        add("East", east);
+
+        addWindowListener(this);
+        setSize(600, 600);
+        setVisible(true);
+    }
+
+    public void actionPerformed(ActionEvent e)
+    {
+        if(server != null)
+        {
+            appendEvent("Server geschlossen");
+            stop();
+            //tPortNumber.setEditable(true); Nachfragen!
+            //stopStart.setText("Start"); Nachfragen!
+            System.exit(0);
+        }
+        int port;
+        try
+        {
+            port = Integer.parseInt(tPortNumber.getText().trim());
+            server = new ServerSocket(port);
+        }
+        catch(Exception ex)
+        {
+            appendEvent("Invalid port number");
+            return;
+        }
+        start();
+        stopStart.setText("Exit");
+        tPortNumber.setEditable(false);
+    }
+
+    void appendRoom(String str)
+    {
+        ts = new Timestamp(new Date().getTime());
+        chat.append("[" + ts + "] " + str + "\n");
+        //chat.append(str + "\n"); nur eins von beiden
+        chat.setCaretPosition(chat.getText().length() - 1);
+    }
+
+    void appendEvent(String str)
+    {
+        ts = new Timestamp(new Date().getTime());
+        event.append("[" + ts + "] " + str + "\n");
+        //event.append(str + "\n"); nur eins von beiden
+        event.setCaretPosition(chat.getText().length() - 1);
+    }
+
+    public void windowClosing(WindowEvent e)
+    {
+        if(server != null)
+        {
+            try
+            {
+                stop();
+            }
+            catch(Exception eClose) {}
+        }
+        dispose();
+        System.exit(0);
+    }
+    public void windowClosed(WindowEvent e) {}
+    public void windowOpened(WindowEvent e) {}
+    public void windowIconified(WindowEvent e) {}
+    public void windowDeiconified(WindowEvent e) {}
+    public void windowActivated(WindowEvent e) {}
+    public void windowDeactivated(WindowEvent e) {}
+
+    //Aufgabenblatt3 Methoden Ende
 }
 
 class ChatServerThread extends Thread
@@ -239,8 +349,8 @@ class ChatServerThread extends Thread
         }
         catch(IOException e)
         {
-            server.ui.appendEvent(ID + " ERROR sending: " + e.getMessage());
-            System.out.println(ID + " ERROR sending: " + e.getMessage());
+            server.appendEvent(ID + " ERROR sending: " + e.getMessage());
+            //System.out.println(ID + " ERROR sending: " + e.getMessage());
             server.remove(ID);
         }
     }
@@ -250,8 +360,8 @@ class ChatServerThread extends Thread
     }
     public void run()
     {
-        server.ui.appendEvent("Server Thread " + ID + " running.");
-        System.out.println("Server Thread " + ID + " running.");
+        server.appendEvent("Server Thread " + ID + " running.");
+        //System.out.println("Server Thread " + ID + " running.");
         while (true)
         {
             if (accepted)
@@ -262,15 +372,15 @@ class ChatServerThread extends Thread
                     server.sendMessage(ID, msg);
                     if (msg.equals(".bye"))
                     {
-                        send("Goodbye");
+                        send("Auf Wiedersehen");
                         server.remove(ID);
                         break;
                     }
                 }
                 catch (IOException e)
                 {
-                    server.ui.appendEvent(ID + " ERROR reading: " + e.getMessage());
-                    System.out.println(ID + " ERROR reading: " + e.getMessage());
+                    server.appendEvent(ID + " ERROR reading: " + e.getMessage());
+                    //System.out.println(ID + " ERROR reading: " + e.getMessage());
                     server.remove(ID);
                     server.leaveMessage(name);
                     break;
@@ -284,24 +394,24 @@ class ChatServerThread extends Thread
                     String tempPasswort = streamIn.readUTF();
                     if (checkAccount(tempName, tempPasswort))
                     {
-                        send("Access granted");
+                        send("Anmeldung erfolgreich");
                         name = tempName;
                         accepted = true;
                         server.joinMessage(this);
                     }
                     else
                     {
-                        send("Access denied");
-                        server.ui.appendEvent("Stopping Server Thread " + ID);
-                        System.out.println("Stopping Server Thread " + ID);
+                        send("Anmeldung fehlgeschlagen");
+                        server.appendEvent("Stopping Server Thread " + ID);
+                        //System.out.println("Stopping Server Thread " + ID);
                         server.remove(ID);
                         break;
                     }
                 }
                 catch (IOException e)
                 {
-                    server.ui.appendEvent(ID + " ERROR reading: " + e.getMessage());
-                    System.out.println(ID + " ERROR reading: " + e.getMessage());
+                    server.appendEvent(ID + " ERROR reading: " + e.getMessage());
+                    //System.out.println(ID + " ERROR reading: " + e.getMessage());
                     break;
                 }
             }
@@ -342,8 +452,8 @@ class ChatServerThread extends Thread
                 writer.write(passwort);
                 writer.close();
                 check = true;
-                server.ui.appendEvent("New Account " + name + " created");
-                System.out.println("New Account " + name + " created");
+                server.appendEvent("Neuen Account " + name + " erstellt");
+                //System.out.println("New Account " + name + " created");
             }
             else
             {
@@ -362,113 +472,4 @@ class ChatServerThread extends Thread
         }
         return check;
     }
-}
-
-class ServerOberfläche extends JFrame implements ActionListener, WindowListener
-{
-    private JButton stopStart;
-    private JTextArea chat, event;
-    public JTextArea user;
-    private JTextField tPortNumber;
-    private ChatServer server;
-
-    ServerOberfläche(int port)
-    {
-        super("Chat Server");
-        server = null;
-        JPanel north = new JPanel();
-        north.add(new JLabel("Port number: "));
-        tPortNumber = new JTextField("" + port);
-        north.add(tPortNumber);
-        stopStart = new JButton("Start");
-        stopStart.addActionListener(this);
-        north.add(stopStart);
-        add("North", north);
-
-
-        JPanel center = new JPanel(new GridLayout(2,1));
-        chat = new JTextArea(80,80);
-        chat.setEditable(false);
-        appendRoom("Chat room.\n");
-        center.add(new JScrollPane(chat));
-        event = new JTextArea(80,80);
-        event.setEditable(false);
-        appendEvent("Events log.\n");
-        center.add(new JScrollPane(event));
-        add("Center", center);
-
-        JPanel south = new JPanel();
-        user = new JTextArea(160,20);
-        user.setEditable(false);
-        south.add(new JScrollPane(user));
-        add("East", user);
-
-        addWindowListener(this);
-        setSize(400, 600);
-        setVisible(true);
-    }
-    void appendRoom(String str)
-    {
-        chat.append(str + "\n");
-        chat.setCaretPosition(chat.getText().length() - 1);
-    }
-    void appendEvent(String str)
-    {
-        event.append(str + "\n");
-        event.setCaretPosition(chat.getText().length() - 1);
-
-    }
-
-    public void actionPerformed(ActionEvent e)
-    {
-        // if running we have to stop
-        if(server != null)
-        {
-            appendEvent("Server geschlossen");
-            server.stop();
-            server = null;
-
-            tPortNumber.setEditable(true);
-            stopStart.setText("Start");
-            return;
-        }
-        // OK start the server
-        int port;
-        try
-        {
-            port = Integer.parseInt(tPortNumber.getText().trim());
-        }
-        catch(Exception ex)
-        {
-            appendEvent("Invalid port number");
-            return;
-        }
-
-        // ceate a new Server
-        server = new ChatServer(port);
-        server.start();
-        stopStart.setText("Stop");
-        tPortNumber.setEditable(false);
-    }
-
-    public void windowClosing(WindowEvent e)
-    {
-        if(server != null)
-        {
-            try
-            {
-                server.stop();
-            }
-            catch(Exception eClose) {}
-            server = null;
-        }
-        dispose();
-        System.exit(0);
-    }
-    public void windowClosed(WindowEvent e) {}
-    public void windowOpened(WindowEvent e) {}
-    public void windowIconified(WindowEvent e) {}
-    public void windowDeiconified(WindowEvent e) {}
-    public void windowActivated(WindowEvent e) {}
-    public void windowDeactivated(WindowEvent e) {}
 }
