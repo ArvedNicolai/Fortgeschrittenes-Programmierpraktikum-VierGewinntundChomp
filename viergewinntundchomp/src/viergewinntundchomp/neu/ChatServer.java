@@ -1,5 +1,6 @@
 package neu;
 
+
 import java.net.*;
 import java.io.*;
 import javax.swing.*;
@@ -125,8 +126,9 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         appendRoom(msg);
     }
 
+    //Nachrichten im Server, die die Spielergebnisse anzeigen
     synchronized void sendMessage(int ID, String input)
-    {
+    {	
         String message = null;
         ChatServerThread client = clients[findClient(ID)];
         switch (input)
@@ -138,7 +140,7 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
                 updateUserList();
                 break;
             case "/win":
-                message = client.name + " hat in " + client.spiel + "gegen " + client.gegner.name + " gewonnen";
+                message = client.name + " hat in " + client.spiel + " gegen " + client.gegner.name + " gewonnen";
                 break;
             case "/draw":
                 message = "Unentschieden zwischen " + client.name + " und " + client.gegner.name + " in " + client.spiel;
@@ -161,7 +163,6 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
                 }
             }
         }
-
     }
 
     void sendAmZug(int ID1, int ID2)
@@ -253,6 +254,7 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         }
     }
 
+    //Herausfinden der User, die auf dem Server sind
     private ChatServerThread[] getChatUser()
     {
         int k = 0,j = 0;
@@ -274,6 +276,11 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         return acceptedClients;
     }
 
+    //Herausfinden, der gerade spielenden User
+    //User die gerade im Spiel sind, werden markiert, damit sie nicht mehrere Male in die Liste 
+    //aufgenommen werden, am Ende der Erstellung des spielInfo Arrays, werden alle User
+    //wieder entmarkiert
+    
     private String[] getIngameUser()
     {
         int x = 0;
@@ -308,6 +315,7 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         return spielInfo;
     }
 
+    //Anzeige, der User auf dem Server
     private String userListString()
     {
         String namen = "Zurzeit im Raum: \n";
@@ -321,7 +329,8 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         }
         return namen;
     }
-
+    
+    //Anzeige der User, die im Spiel sind
     private String imSpielString()
     {
         String namen = "Zurzeit im Spiel: ";
@@ -693,18 +702,15 @@ class ChatServerThread extends Thread
                 gegner.sendInt(spielHöhe);
                 gegner.sendInt(spielBreite);
                 gegner.send(spiel);
-
             }
             else
             {
                 send("/busy");
             }
-
         }
         catch (NullPointerException e)
         {
             send("/busy");
-
         }
     }
 
@@ -784,3 +790,4 @@ class ChatServerThread extends Thread
         return false;
     }
 }
+
