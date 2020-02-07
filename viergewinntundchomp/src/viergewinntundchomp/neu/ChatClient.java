@@ -33,12 +33,14 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         ChatClient chatClient = new ChatClient("localhost", 5555);
     }
 
+    //Konstruktor
     private ChatClient(String serverName, int serverPort)
     {
         super("Chat Client");
         createGUI(serverName, serverPort);
-
     }
+    
+    //ChatClient läuft
     public void run()
     {
         while (thread != null)
@@ -62,6 +64,7 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         }
     }
 
+    //ChatClient startet
     private void start() throws IOException
     {
         console = new BufferedReader(new InputStreamReader(System.in));
@@ -74,6 +77,7 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         }
     }
 
+    //ChatClient wird gestoppt
     void stop()
     {
         if (thread != null)
@@ -317,7 +321,7 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         errorSpielAuswahl.setSize(300,300);
         errorSpielAuswahl.setVisible(false);
 
-
+        //Felder, die erscheinen, wenn man zum Spiel herausgefordert wird
         herausforderung = new JFrame();
         herausforderung.addWindowListener(this);
         herausfText = new JTextField("");
@@ -325,7 +329,7 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         JPanel jaNein = new JPanel(new GridLayout(1,2));
         akzeptieren = new JButton("Akzeptieren");
         akzeptieren.addActionListener(this);
-        ablehnen = new JButton("Ablehen");
+        ablehnen = new JButton("Ablehnen");
         ablehnen.addActionListener(this);
         jaNein.add(akzeptieren);
         jaNein.add(ablehnen);
@@ -370,6 +374,7 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         spielAuswahl.validate();
     }
 
+    //Auswahl der Spielfeldgröße
     private void changeToCustomGröße()
     {
         JPanel south = new JPanel(new GridLayout(2,1));
@@ -395,7 +400,7 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         {
             spielText.setText("Wählen Sie die Größe des Spielfeldes aus\n (mindestens 5x5)");
         }
-        else
+        else	//Wenn Chomp gespielt wird. 
         {
             spielText.setText("Wählen Sie die Größe des Spielfeldes aus\n (mindestens 3x3)");
         }
@@ -586,11 +591,9 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
                     append("Error starting game: " + ex.getMessage());
                 }
             }
-
         }
         if (o == option2)
         {
-
             spielen.setEnabled(false);
             user.deselect(user.getSelectedIndex());
             if (option2.getText().equals("Chomp"))
@@ -851,7 +854,7 @@ class ChatClientThread extends Thread
                 break;
             case "close":
                 if(spiel != null && !spiel.gewonnen && !spiel.unentschieden)
-                {
+                {	//Ausgabe, wenn ein Spieler, dass Spiel vorzeitig beendet. 
                     spiel.label.setText(client.selectedUser + " hat aufgegeben");
                     spiel.gewonnen = true;
                 }
@@ -883,6 +886,7 @@ class ChatClientThread extends Thread
     }
 }
 
+//Aufgabenblatt 1
 abstract class Spiel extends JFrame implements MouseListener, WindowListener
 {
     ChatClient chatClient;
@@ -1236,6 +1240,7 @@ class VierGewinnt extends Spiel implements Protokolierbar
     public void windowDeactivated(WindowEvent e) { }
 }
 
+//Klasse Chomp aus Aufabenblatt 1
 class Chomp extends Spiel implements Protokolierbar
 {
     Chomp(String name1, String name2, int amZug, int x, int y, ChatClient client)
@@ -1267,6 +1272,7 @@ class Chomp extends Spiel implements Protokolierbar
         setLabel(amZug);
     }
 
+    //Graphische Benutzeroberfläche
     private void createGUI(Frame frame)
     {
         label.setHorizontalAlignment(SwingConstants.CENTER);
