@@ -12,28 +12,28 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
     private Socket socket = null;
     private Thread thread = null;
     private BufferedReader console = null;
-    public DataOutputStream streamOut = null;
-    public ChatClientThread client = null;
+    DataOutputStream streamOut = null;
+    ChatClientThread client = null;
+
+    private int defaultPort, spielHöhe, spielBreite;
+    public String defaultHost, angebotenesSpiel, selectedUser;
     private boolean anmelden = true, getList = false, getInGame = false, connected;
-    private JLabel label;
-    private JTextField tf, tfServer, tfPort, tfName, tfPw, spielText, herausfText;
-    private JButton login, logout, spielen, option1, option2, ok, akzeptieren, ablehnen;
-    private JTextArea ta, ingameUser;
-    private List user;
-    private int defaultPort;
-    public int amZug;
-    private String defaultHost;
-    public String selectedUser;
-    public String angebotenesSpiel;
-    private JPanel southPanel, nameUndPasswort, frameSouth;
+
     private JFrame spielAuswahl, errorSpielAuswahl, herausforderung;
+    private JPanel southPanel;
+    private JPanel nameUndPasswort;
+    private JTextField tf, tfServer, tfPort, tfName, tfPw, spielText, herausfText, höhe, breite;
+    private JTextArea ta, ingameUser;
+    private JButton login, logout, spielen, option1, option2, ok, akzeptieren, ablehnen, senden;
+    private JLabel label;
+    private List user;
 
     public static void main(String[] args)
     {
         ChatClient chatClient = new ChatClient("localhost", 5555);
     }
 
-    public ChatClient(String serverName, int serverPort)
+    private ChatClient(String serverName, int serverPort)
     {
         super("Chat Client");
         createGUI(serverName, serverPort);
@@ -62,63 +62,7 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         }
     }
 
-
-    public void message(String msg) throws IOException
-    {
-        switch (msg)
-        {
-            case "":
-                break;
-            case "/userListBeginn":
-                getList = true;
-                user.removeAll();
-                user.add("Zurzeit im Raum: ");
-                break;
-            case "/userListEnde":
-                getList = false;
-                break;
-            case "/imSpielListBeginn":
-                getInGame = true;
-                ingameUser.setText("Zurzeit im Spiel: ");
-                break;
-            case "/imSpielListEnde":
-                getInGame = false;
-                break;
-            case "/offerSpiel":
-                selectedUser = client.streamIn.readUTF();
-                angebotenesSpiel = client.streamIn.readUTF();
-                herausfText.setText(selectedUser + " will mit ihnen " + angebotenesSpiel + " spielen");
-                herausforderung.setVisible(true);
-                break;
-            case "Anmeldung fehlgeschlagen":
-                connectionFailed(msg);
-                stop();
-                break;
-            case "Auf Wiedersehen": case "Server wurde geschlossen" :
-                append(msg);
-                disconnect();
-                stop();
-                break;
-            default:
-                if (getList)
-                {
-                    user.add(msg);
-                }
-                else
-                {
-                    if (getInGame)
-                    {
-                        ingameUser.append(msg);
-                    }
-                    else
-                    {
-                        append(msg + "\n");
-                    }
-                }
-                break;
-        }
-    }
-    public void start() throws IOException
+    private void start() throws IOException
     {
         console = new BufferedReader(new InputStreamReader(System.in));
         streamOut = new DataOutputStream(socket.getOutputStream());
@@ -129,7 +73,8 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
             thread.start();
         }
     }
-    public void stop()
+
+    void stop()
     {
         if (thread != null)
         {
@@ -157,9 +102,119 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         client.close();
     }
 
+    void message(String msg) throws IOException
+    {
+        if (msg == null)
+        {
+            return;
+        }
+        switch (msg)
+        {
+            case "/userListBeginn":
+                getList = true;
+                user.removeAll();
+                user.add("Zurzeit im Raum: ");
+                break;
+
+            case "/userListEnde":
+                getList = false;
+                break;
+
+            case "/imSpielListBeginn":
+                getInGame = true;
+                ingameUser.setText("Zurzeit im Spiel: ");
+                break;
+
+            case "/imSpielListEnde":
+                getInGame = false;
+                break;
+
+            case "/offerSpiel":
+                logout.setEnabled(false);
+                String gegner = client.streamIn.readUTF();
+                int y = client.streamIn.readInt();
+                int x = client.streamIn.readInt();
+                String spiel = client.streamIn.readUTF();
+                if (!client.imSpiel)
+                {
+                    selectedUser = gegner;
+                    spielHöhe = y;
+                    spielBreite = x;
+                    angebotenesSpiel = spiel;
+                    herausfText.setText(selectedUser + " will mit ihnen " + angebotenesSpiel + " spielen");
+                    herausforderung.setVisible(true);
+                }
+                else
+                {
+                    try
+                    {
+                        streamOut.writeUTF("/declineSpiel");
+                    }
+                    catch (IOException ex)
+                    {
+                        append("Error declining: " + ex.getMessage());
+                    }
+                }
+                break;
+
+            case "/begin":
+                logout.setEnabled(true);
+                client.imSpiel = true;
+                int amZug = client.streamIn.readInt();
+                if (angebotenesSpiel.equals("Vier Gewinnt"))
+                {
+                    client.spiel = new VierGewinnt(client.name, selectedUser, amZug, spielBreite, spielHöhe, this);
+                }
+                else
+                {
+                    client.spiel = new Chomp(client.name, selectedUser, amZug, spielBreite, spielHöhe, this);
+                }
+                break;
+
+            case "/declineSpiel":
+                append(selectedUser + " hat abgelehnt");
+                closeGame();
+                break;
+
+            case "/busy":
+                append(selectedUser + " ist im Moement nicht verfügbar\n");
+                closeGame();
+                break;
+
+            case "Anmeldung fehlgeschlagen":
+                connectionFailed(msg);
+                stop();
+                break;
+
+            case "Auf Wiedersehen": case "Server wurde geschlossen":
+                append(msg);
+                disconnect();
+                stop();
+                break;
+
+            default:
+                if (getList)
+                {
+                    user.add(msg);
+                }
+                else
+                {
+                    if (getInGame)
+                    {
+                        ingameUser.append(msg);
+                    }
+                    else
+                    {
+                        append(msg + "\n");
+                    }
+                }
+                break;
+        }
+    }
+
     //Aufgabenblatt3 Methoden Anfang
 
-    void createGUI(String host, int port)
+    private void createGUI(String host, int port)
     {
         defaultPort = port;
         defaultHost = host;
@@ -169,8 +224,10 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         tfPort = new JTextField("" + port);
         tfPort.setHorizontalAlignment(SwingConstants.RIGHT);
         tfName = new JTextField("Anonymous");
+        tfName.addActionListener(this);
         tfName.setBackground(Color.WHITE);
         tfPw = new JTextField("Passwort");
+        tfPw.addActionListener(this);
         tfPw.setBackground(Color.WHITE);
 
         //Serveradresse + Portnummer Felder
@@ -234,26 +291,20 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         northPanel.add(spielen);
         add("North", northPanel);
 
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(600, 600);
-        setVisible(true);
-        tfName.requestFocus();
-
         spielAuswahl = new JFrame();
         spielAuswahl.addWindowListener(this);
-        frameSouth = new JPanel(new GridLayout(1,2));
         spielText = new JTextField();
+        spielText.setEditable(false);
         spielText.setHorizontalAlignment(SwingConstants.CENTER);
         spielAuswahl.add("Center", spielText);
         option1 = new JButton();
         option1.addActionListener(this);
         option2 = new JButton();
         option2.addActionListener(this);
-        frameSouth.add(option1);
-        frameSouth.add(option2);
-        spielAuswahl.add("South", frameSouth);
-        spielAuswahl.setSize(300, 300);
+        spielAuswahl.setSize(450, 300);
         spielAuswahl.setVisible(false);
+        senden = new JButton("Anfrage senden");
+        senden.addActionListener(this);
 
         errorSpielAuswahl = new JFrame();
         errorSpielAuswahl.addWindowListener(this);
@@ -266,15 +317,16 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         errorSpielAuswahl.setSize(300,300);
         errorSpielAuswahl.setVisible(false);
 
+
         herausforderung = new JFrame();
         herausforderung.addWindowListener(this);
+        herausfText = new JTextField("");
+        herausfText.setHorizontalAlignment(SwingConstants.CENTER);
+        JPanel jaNein = new JPanel(new GridLayout(1,2));
         akzeptieren = new JButton("Akzeptieren");
         akzeptieren.addActionListener(this);
         ablehnen = new JButton("Ablehen");
         ablehnen.addActionListener(this);
-        herausfText = new JTextField("");
-        herausfText.setHorizontalAlignment(SwingConstants.CENTER);
-        JPanel jaNein = new JPanel(new GridLayout(1,2));
         jaNein.add(akzeptieren);
         jaNein.add(ablehnen);
         herausforderung.add("Center", herausfText);
@@ -282,12 +334,183 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         herausforderung.setSize(300, 300);
         herausforderung.setVisible(false);
 
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setSize(600, 600);
+        setVisible(true);
+        tfName.requestFocus();
     }
 
-    void append(String str)
+    private void append(String str)
     {
         ta.append(str);
     }
+
+    private void startSpiel() throws IOException
+    {
+        streamOut.writeUTF("/startSpiel");
+        streamOut.writeUTF(angebotenesSpiel);
+        streamOut.writeInt(spielHöhe);
+        streamOut.writeInt(spielBreite);
+        streamOut.writeUTF(selectedUser);
+    }
+
+    private void changeToGrößeAusw()
+    {
+        spielText.setText("Wollen Sie die Standardgröße benutzen oder eigene Größen benutzen");
+        option1.setText("Standard (6x7)");
+        option2.setText("Benutzerdefiniert");
+        JPanel vierGSouth = new JPanel(new GridLayout(1,2));
+        vierGSouth.add(option1);
+        vierGSouth.add(option2);
+
+        spielAuswahl.getContentPane().removeAll();
+        spielAuswahl.getContentPane().repaint();
+        spielAuswahl.add("Center", spielText);
+        spielAuswahl.add("South", vierGSouth);
+        spielAuswahl.validate();
+    }
+
+    private void changeToCustomGröße()
+    {
+        JPanel south = new JPanel(new GridLayout(2,1));
+        JLabel labelHöhe = new JLabel("Höhe: ");
+        JLabel labelBreite = new JLabel("Breite: ");
+        labelHöhe.setHorizontalAlignment(SwingConstants.CENTER);
+        labelBreite.setHorizontalAlignment(SwingConstants.CENTER);
+        höhe = new JTextField();
+        breite = new JTextField();
+        höhe.addActionListener(this);
+        breite.addActionListener(this);
+
+        JPanel tempPanel = new JPanel(new GridLayout(1,4));
+        tempPanel.add(labelHöhe);
+        tempPanel.add(höhe);
+        tempPanel.add(labelBreite);
+        tempPanel.add(breite);
+
+        south.add(tempPanel);
+        south.add(senden);
+
+        if (angebotenesSpiel.equals("Vier Gewinnt"))
+        {
+            spielText.setText("Wählen Sie die Größe des Spielfeldes aus\n (mindestens 5x5)");
+        }
+        else
+        {
+            spielText.setText("Wählen Sie die Größe des Spielfeldes aus\n (mindestens 3x3)");
+        }
+        spielAuswahl.getContentPane().removeAll();
+        spielAuswahl.getContentPane().repaint();
+        spielAuswahl.add("Center", spielText);
+        spielAuswahl.add("South", south);
+        spielAuswahl.validate();
+    }
+
+    private void changeBack()
+    {
+        option1.setText("Vier Gewinnt");
+        option2.setText("Chomp");
+        spielAuswahl.getContentPane().removeAll();
+        spielAuswahl.getContentPane().repaint();
+
+        JPanel frameSouth = new JPanel(new GridLayout(1, 2));
+        frameSouth.add(option1);
+        frameSouth.add(option2);
+
+        spielAuswahl.add("Center", spielText);
+        spielAuswahl.add("South", frameSouth);
+        spielAuswahl.validate();
+        spielAuswahl.setVisible(false);
+    }
+
+    void closeGame()
+    {
+        spielen.setEnabled(false);
+        herausforderung.setVisible(false);
+        spielAuswahl.setVisible(false);
+        tf.setEditable(true);
+        logout.setEnabled(true);
+        spielBreite = 0;
+        spielHöhe = 0;
+        angebotenesSpiel = null;
+        if (selectedUser != null)
+        {
+            selectedUser = null;
+        }
+        if (client != null)
+        {
+            client.imSpiel = false;
+            if (client.spiel != null)
+            {
+                client.spiel.frame.setVisible(false);
+                if (!client.spiel.gewonnen && !client.spiel.unentschieden)
+                {
+                    try
+                    {
+                        streamOut.writeUTF("end");
+                    }
+                    catch (IOException e)
+                    {
+                        append("Error: " + e.getMessage());
+                    }
+                }
+            }
+            client.spiel = null;
+        }
+    }
+
+    private void reset()
+    {
+        login.setEnabled(true);
+        logout.setEnabled(false);
+        spielen.setEnabled(false);
+        if (client != null)
+        {
+            if (client.spiel != null)
+            {
+                client.spiel.frame.setVisible(false);
+                client.spiel = null;
+            }
+            client.imSpiel = false;
+        }
+        user.deselect(user.getSelectedIndex());
+        tf.setText("");
+        tf.setEditable(true);
+        southPanel.remove(tf);
+        southPanel.add(nameUndPasswort);
+        label.setText("Unten Name und Passwort eingeben");
+        tfName.setText("Anonymous");
+        tfPw.setText("Passwort");
+        tfPort.setText("" + defaultPort);
+        tfServer.setText(defaultHost);
+        user.removeAll();
+        user.add("Mit keinem Chatraum verbunden");
+        ingameUser.setText("Mit keinem Chatraum verbunden");
+        tfServer.setEditable(true);
+        tfPort.setEditable(true);
+        tf.removeActionListener(this);
+        connected = false;
+        client.running = false;
+    }
+
+    private void disconnect()
+    {
+        closeGame();
+        reset();
+    }
+
+    void connectionFailed(String msg)
+    {
+        closeGame();
+        reset();
+        append(msg);
+        if (connected)
+        {
+            append("\nDisconnecting from the Server");
+        }
+    }
+
+    //Aufgabenblatt3 Methoden Ende
 
     public void actionPerformed(ActionEvent e)
     {
@@ -302,20 +525,19 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
             }
             catch (IOException ex)
             {
-                System.out.println(ex.toString());
-                ex.printStackTrace();
+                append("Error accepting: " + ex.getMessage());
             }
         }
         if (o == ablehnen)
         {
-            herausforderung.setVisible(false);
+            closeGame();
             try
             {
-                streamOut.writeUTF("/denySpiel");
+                streamOut.writeUTF("/declineSpiel");
             }
             catch (IOException ex)
             {
-                ex.printStackTrace();
+                append("Error declining: " + ex.getMessage());
             }
         }
         if (o == ok)
@@ -325,7 +547,9 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         }
         if (o == spielen || o == user)
         {
+            changeBack();
             tf.setEditable(false);
+            logout.setEnabled(false);
             spielen.setEnabled(false);
             option1.setText("Vier Gewinnt");
             option2.setText("Chomp");
@@ -341,40 +565,65 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
         }
         if (o == option1)
         {
-            angebotenesSpiel = "Vier Gewinnt";
             spielen.setEnabled(false);
-            spielAuswahl.setVisible(false);
-            try
+            user.deselect(user.getSelectedIndex());
+            if (option1.getText().equals("Vier Gewinnt"))
             {
-                streamOut.writeUTF("/startSpiel");
-                streamOut.writeUTF("Vier Gewinnt");
-                streamOut.writeUTF(selectedUser);
-                user.deselect(user.getSelectedIndex());
+                angebotenesSpiel = "Vier Gewinnt";
+                changeToGrößeAusw();
             }
-            catch (IOException ex)
+            else
             {
-                reset();
-                System.out.println(ex.toString());
-                ex.printStackTrace();
+                spielHöhe = 6;
+                spielBreite = 7;
+                changeBack();
+                try
+                {
+                    startSpiel();
+                }
+                catch (IOException ex)
+                {
+                    append("Error starting game: " + ex.getMessage());
+                }
             }
 
         }
         if (o == option2)
         {
-            angebotenesSpiel = "Chomp";
+
             spielen.setEnabled(false);
-            spielAuswahl.setVisible(false);
-            try
+            user.deselect(user.getSelectedIndex());
+            if (option2.getText().equals("Chomp"))
             {
-                streamOut.writeUTF("/startSpiel");
-                streamOut.writeUTF("Chomp");
-                streamOut.writeUTF(selectedUser);
-                user.deselect(user.getSelectedIndex());
+                angebotenesSpiel = "Chomp";
             }
-            catch (IOException ex)
+            changeToCustomGröße();
+        }
+        if(o == höhe || o == breite || o == senden)
+        {
+            int x, y;
+            if (höhe.getText() != null && breite.getText() != null)
             {
-                reset();
-                ex.printStackTrace();
+                x = Integer.parseInt(höhe.getText());
+                y = Integer.parseInt(breite.getText());
+                if ((angebotenesSpiel.equals("Vier Gewinnt") && x > 4 && y > 4) || (angebotenesSpiel.equals("Chomp") && x > 2 && y > 2))
+                {
+                    spielHöhe = x;
+                    spielBreite = y;
+                    changeBack();
+                    try
+                    {
+                        startSpiel();
+                    }
+                    catch (IOException ex)
+                    {
+                        append("Error Feldgröße: " + ex.getMessage());
+                    }
+                }
+                else
+                {
+                    append("Das Feld ist zu klein\n");
+                }
             }
         }
         if(o == logout)
@@ -409,15 +658,14 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
             }
             catch (IOException ex)
             {
-                ex.printStackTrace();
+                append("Error: " + ex.getMessage());
             }
             tf.setText("");
             return;
         }
-        if(o == login)
+        if(o == login || o == tfName || o == tfPw)
         {
             tf.setEditable(true);
-            append("Verbindung wird aufgebaut\n");
             String username = tfName.getText().trim();
             if(username.length() == 0)
                 return;
@@ -431,12 +679,12 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
             if(portNumber.length() == 0)
                 return;
             ta.setText("");
-
             int port;
             try
             {
                 port = Integer.parseInt(portNumber);
                 socket = new Socket(server, port);
+                append("Verbindung wird aufgebaut\n");
                 append("Connected: " + socket + "\n");
                 start();
             }
@@ -476,83 +724,14 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
             catch (IOException ex)
             {
                 connectionFailed("Error: " + ex.getMessage());
-                return;
             }
         }
     }
-
-    void closeGame()
-    {
-        if (!client.spiel.gewonnen && !client.spiel.unentschieden)
-        {
-            try
-            {
-                streamOut.writeInt(-2);
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-        }
-        client.imSpiel = false;
-        client.spiel = null;
-        spielen.setEnabled(false);
-        selectedUser = null;
-        tf.setEditable(true);
-        angebotenesSpiel = null;
-    }
-
-    void reset()
-    {
-        login.setEnabled(true);
-        logout.setEnabled(false);
-        spielen.setEnabled(false);
-        if (client.spiel != null)
-        {
-            client.spiel.frame.setVisible(false);
-            client.spiel = null;
-        }
-        client.imSpiel = false;
-        user.deselect(user.getSelectedIndex());
-        tf.setText("");
-        tf.setEditable(true);
-        southPanel.remove(tf);
-        southPanel.add(nameUndPasswort);
-        label.setText("Unten Name und Passwort eingeben");
-        tfName.setText("Anonymous");
-        tfPw.setText("Passwort");
-        tfPort.setText("" + defaultPort);
-        tfServer.setText(defaultHost);
-        user.removeAll();
-        user.add("Mit keinem Chatraum verbunden");
-        ingameUser.setText("Mit keinem Chatraum verbunden");
-        tfServer.setEditable(true);
-        tfPort.setEditable(true);
-        tf.removeActionListener(this);
-        connected = false;
-    }
-
-    void disconnect()
-    {
-        reset();
-    }
-
-    void connectionFailed(String msg)
-    {
-        reset();
-        append(msg);
-        if (connected)
-        {
-            append("\nDisconnecting from the Server");
-        }
-    }
-
-    //Aufgabenblatt3 Methoden Ende
 
     public void itemStateChanged(ItemEvent e)
     {
         int o = (int) e.getItem();
-        if (o == 0 || user.getItem(o).equals(client.name))
+        if (o == 0 || user.getItem(o).equals(client.name) || client.imSpiel || client.spiel != null)
         {
             selectedUser = null;
             user.deselect(o);
@@ -567,11 +746,25 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
 
     public void windowClosing(WindowEvent e)
     {
-        selectedUser = null;
-        user.deselect(user.getSelectedIndex());
-        spielen.setEnabled(false);
+        if (e.getSource() == spielAuswahl)
+        {
+            changeBack();
+            closeGame();
+            spielAuswahl.dispose();
+        }
+        if (e.getSource() == herausforderung)
+        {
+            herausforderung.dispose();
+            try
+            {
+                streamOut.writeUTF("/declineSpiel");
+            }
+            catch (IOException ex)
+            {
+                append("Error: " + ex.getMessage());
+            }
+        }
     }
-
     public void windowOpened(WindowEvent e) { }
     public void windowClosed(WindowEvent e) { }
     public void windowIconified(WindowEvent e) { }
@@ -587,16 +780,16 @@ class ChatClientThread extends Thread
     private ChatClient client;
     public DataInputStream streamIn = null;
     public String name;
-    boolean imSpiel = false;
+    public boolean imSpiel = false, running = true;
 
-    public ChatClientThread(ChatClient client, Socket socket)
+    ChatClientThread(ChatClient client, Socket socket)
     {
         this.client   = client;
         this.socket   = socket;
         open();
         start();
     }
-    public void open()
+    private void open()
     {
         try
         {
@@ -608,7 +801,7 @@ class ChatClientThread extends Thread
             client.stop();
         }
     }
-    public void close()
+    void close()
     {
         try
         {
@@ -625,67 +818,18 @@ class ChatClientThread extends Thread
     }
     public void run()
     {
-        while (true)
+        while (running)
         {
             try
             {
+                String msg = streamIn.readUTF();
                 if (!imSpiel)
                 {
-                    String msg = streamIn.readUTF();
-                    if (msg.equals("/begin"))
-                    {
-                        imSpiel = true;
-                        client.amZug = streamIn.readInt();
-                        if (client.angebotenesSpiel.equals("Vier Gewinnt"))
-                        {
-                            spiel = new VierGewinnt(name, client.selectedUser, client.amZug, 7, 6, client);
-                        }
-                        else
-                        {
-                            spiel = new Chomp(name, client.selectedUser, client.amZug, 5, 5, client);
-                        }
-                    }
-                    else
-                    {
-                        client.message(msg);
-                    }
-                    if (msg.equals("Anmeldung fehlgeschlagen") || msg.equals("Auf Wiedersehen"))
-                    {
-                        break;
-                    }
+                    client.message(msg);
                 }
                 else
                 {
-                    int operating = streamIn.readInt();
-                    if (operating == -2)
-                    {
-                        String msg = streamIn.readUTF();
-                        client.message(msg);
-                    }
-                    if (operating == -1)
-                    {
-                        imSpiel = false;
-                        if(spiel != null && !spiel.gewonnen && !spiel.unentschieden)
-                        {
-                            spiel.label.setText(spiel.loser + " hat aufgegeben");
-                        }
-                    }
-                    if (operating == 0)
-                    {
-                        imSpiel = false;
-                        spiel.sendFeld(-1,-1,-1);
-                    }
-                    if (spiel != null && spiel.amZug == 1 && operating >= 0)
-                    {
-                        int status = streamIn.readInt();
-                        if (status == 1 || status == 2)
-                        {
-                            imSpiel = false;
-                        }
-                        int x = streamIn.readInt();
-                        int y = streamIn.readInt();
-                        spiel.Spielzug(x, y, status, false);
-                    }
+                    spielZüge(msg);
                 }
             }
             catch(IOException e)
@@ -696,18 +840,62 @@ class ChatClientThread extends Thread
             }
         }
     }
+
+    private void spielZüge(String message) throws IOException
+    {
+        switch (message)
+        {
+            case "message":
+                String msg = streamIn.readUTF();
+                client.message(msg);
+                break;
+            case "close":
+                if(spiel != null && !spiel.gewonnen && !spiel.unentschieden)
+                {
+                    spiel.label.setText(client.selectedUser + " hat aufgegeben");
+                    spiel.gewonnen = true;
+                }
+                imSpiel = false;
+                break;
+            case "end":
+                imSpiel = false;
+                client.streamOut.writeUTF("close");
+                String status = streamIn.readUTF();
+                int x = streamIn.readInt();
+                int y = streamIn.readInt();
+                spiel.Spielzug(x, y, status, false);
+                break;
+            case "nothing":
+                if (spiel != null && spiel.amZug == 1)
+                {
+
+                    status = streamIn.readUTF();
+                    x = streamIn.readInt();
+                    y = streamIn.readInt();
+                    spiel.Spielzug(x, y, status, false);
+                    if (status.equals("win") || status.equals("draw"))
+                    {
+                        imSpiel = false;
+                    }
+                }
+                break;
+        }
+    }
 }
 
 abstract class Spiel extends JFrame implements MouseListener, WindowListener
 {
+    ChatClient chatClient;
+
     int höheSquare, breiteSquare, amZug;
     boolean gewonnen = false, unentschieden = false;
     String loser, winner;
+
     Spieler[] spieler = new Spieler[2];
     Spielfeld feld;
+
     JFrame frame = new JFrame("Spiel");
     JLabel label = new JLabel();
-    ChatClient chatClient;
 
     Spiel(String name1, String name2, int amZug, int x, int y, ChatClient client)
     {
@@ -718,24 +906,13 @@ abstract class Spiel extends JFrame implements MouseListener, WindowListener
         höheSquare = getSize().height / y;
         this.amZug = amZug;
     }
-    abstract void Spielzug(int x, int y, int status, boolean senden) throws IOException;
-    void setLabel(int i)
-    {
-        if (i == 1)
-        {
-            label.setText(spieler[1].name + " ist dran (rot)");
-        }
-        else
-        {
-            label.setText("Sie sind dran (grün)");
-        }
-    }
+    abstract void Spielzug(int x, int y, String status, boolean senden) throws IOException;
 
-    public void sendFeld(int x, int y, int status)
+    void sendFeld(int x, int y, String status)
     {
         try
         {
-            chatClient.streamOut.writeInt(status);
+            chatClient.streamOut.writeUTF(status);
             chatClient.streamOut.flush();
             chatClient.streamOut.writeInt(x);
             chatClient.streamOut.flush();
@@ -745,6 +922,18 @@ abstract class Spiel extends JFrame implements MouseListener, WindowListener
         catch (IOException e)
         {
             e.printStackTrace();
+        }
+    }
+
+    void setLabel(int i)
+    {
+        if (i == 1)
+        {
+            label.setText(spieler[1].name + " ist dran (rot)");
+        }
+        else
+        {
+            label.setText("Sie sind dran (grün)");
         }
     }
 
@@ -784,7 +973,7 @@ class Knoten
 {
     Knoten next;
     Color[][] status;
-    Spieler spieler;
+    private Spieler spieler;
     Knoten (Color[][] status, Knoten next, Spieler spieler)
     {
         this.status = status;
@@ -795,7 +984,7 @@ class Knoten
 
 class Speicher
 {
-    Knoten top;
+    private Knoten top;
     Speicher()
     {
         top = null;
@@ -853,50 +1042,6 @@ class VierGewinnt extends Spiel implements Protokolierbar
         setLabel(amZug);
     }
 
-
-
-    public void Spielzug(int x, int y, int status, boolean senden)
-    {
-        winner = spieler[amZug].name;
-        if (gewonnen || unentschieden)
-        {
-            return;
-        }
-        feld.status[x][y] = spieler[amZug].farbe;
-        SpielzugHinzu(spieler[amZug]);
-        amZug = (amZug + 1) % 2;
-        loser = spieler[amZug].name;
-        setLabel(amZug);
-        if (status == 1)
-        {
-            unentschieden = true;
-            chatClient.client.imSpiel = false;
-            label.setText("Unentschieden");
-        }
-        if (status == 2)
-        {
-            chatClient.client.imSpiel = false;
-            gewonnen = true;
-            label.setText(winner + " hat gewonnen");
-        }
-        if (senden)
-        {
-            sendFeld(x, y, status);
-        }
-        farbe(feld.getGraphics());
-
-    }
-    public void SpielzugHinzu(Spieler spieler)
-    {
-        stack.push(feld.status, spieler);
-    }
-    public void SpielzugEntfern()
-    {
-        stack.pop();
-        feld.status = stack.peek();
-        farbe(feld.getGraphics());
-    }
-
     private void createGUI(Frame frame)
     {
         label.setHorizontalAlignment(SwingConstants.CENTER);
@@ -926,6 +1071,37 @@ class VierGewinnt extends Spiel implements Protokolierbar
                 g.drawOval(x * breiteSquare, y * höheSquare, breiteSquare, höheSquare);
             }
         }
+    }
+
+    public void Spielzug(int x, int y, String status, boolean senden)
+    {
+        if (!gewonnen && !unentschieden)
+        {
+            winner = spieler[amZug].name;
+        }
+        feld.status[x][y] = spieler[amZug].farbe;
+        SpielzugHinzu(spieler[amZug]);
+        amZug = (amZug + 1) % 2;
+        loser = spieler[amZug].name;
+        setLabel(amZug);
+        if (status.equals("draw")) // 2
+        {
+            unentschieden = true;
+            chatClient.client.imSpiel = false;
+            label.setText("Unentschieden");
+        }
+        if (status.equals("win")) // 1
+        {
+            chatClient.client.imSpiel = false;
+            gewonnen = true;
+            label.setText(winner + " hat gewonnen");
+        }
+        if (senden)
+        {
+            sendFeld(x, y, status);
+        }
+        farbe(feld.getGraphics());
+
     }
 
     private int dropChip4G(Spielfeld feld, int x)
@@ -1006,11 +1182,22 @@ class VierGewinnt extends Spiel implements Protokolierbar
         return true;
     }
 
+    public void SpielzugHinzu(Spieler spieler)
+    {
+        stack.push(feld.status, spieler);
+    }
+    public void SpielzugEntfern()
+    {
+        stack.pop();
+        feld.status = stack.peek();
+        farbe(feld.getGraphics());
+    }
+
     public void mouseClicked(MouseEvent e)
     {
-        if ((!gewonnen || !unentschieden) && amZug == 0)
+        String status = "nothing";
+        if (!gewonnen && !unentschieden && amZug == 0)
         {
-            int status = 0;
             int x = e.getX() / breiteSquare;
             if (x >= feld.spalten)
             {
@@ -1021,11 +1208,11 @@ class VierGewinnt extends Spiel implements Protokolierbar
             {
                 if (checkWin4G(feld, spieler[amZug], x, y))
                 {
-                    status = 2;
+                    status = "win";
                 }
                 if (checkUnentschieden4G(feld))
                 {
-                    status = 1;
+                    status = "draw";
                 }
                 Spielzug(x, y, status, true);
             }
@@ -1051,7 +1238,7 @@ class VierGewinnt extends Spiel implements Protokolierbar
 
 class Chomp extends Spiel implements Protokolierbar
 {
-    public Chomp(String name1, String name2, int amZug, int x, int y, ChatClient client)
+    Chomp(String name1, String name2, int amZug, int x, int y, ChatClient client)
     {
         super(name1, name2, amZug, x, y, client);
         Speicher stack = new Speicher();
@@ -1092,72 +1279,6 @@ class Chomp extends Spiel implements Protokolierbar
         frame.addWindowListener(this);
     }
 
-    public void Spielzug(int x, int y, int status, boolean senden)
-    {
-        if (feld.status[x][y].equals(Color.WHITE))
-        {
-            for (int i = x; i < feld.spalten; i++)
-            {
-                for (int j = y; j < feld.reihen; j++)
-                {
-                    if (feld.status[i][j].equals(Color.WHITE))
-                    {
-                        feld.status[i][j] = spieler[amZug].farbe;
-                    }
-                }
-
-            }
-        }
-        else
-        {
-            return;
-        }
-        winner = spieler[amZug].name;
-        SpielzugHinzu(spieler[amZug]);
-        amZug = (amZug + 1) % 2;
-        loser = spieler[amZug].name;
-        setLabel(amZug);
-        if (status == 1)
-        {
-            unentschieden = true;
-            chatClient.client.imSpiel = false;
-            label.setText("Unentschieden");
-        }
-        if (status == 2)
-        {
-            chatClient.client.imSpiel = false;
-            gewonnen = true;
-            label.setText(winner + " hat gewonnen");
-        }
-        if (senden)
-        {
-            sendFeld(x, y, status);
-        }
-        farbe(feld.getGraphics());
-    }
-    public void SpielzugHinzu(Spieler spieler)
-    {
-        stack.push(feld.status, spieler);
-    }
-    public void SpielzugEntfern()
-    {
-        stack.pop();
-        feld.status = stack.peek();
-        farbe(feld.getGraphics());
-    }
-    private boolean CheckWinChomp(Spielfeld feld, int x, int y)
-    {
-        Color original = feld.status[x][y];
-        feld.status[x][y] = spieler[amZug].farbe;
-        if (!feld.status[1][0].equals(Color.WHITE) && !feld.status[0][1].equals(Color.WHITE))
-        {
-            feld.status[x][y] = original;
-            return true;
-        }
-        feld.status[x][y] = original;
-        return false;
-    }
-
     private void farbe(Graphics g)
     {
         for (int i = 0; i < feld.spalten; i++)
@@ -1180,12 +1301,81 @@ class Chomp extends Spiel implements Protokolierbar
         }
     }
 
-    @Override
+    public void Spielzug(int x, int y, String status, boolean senden)
+    {
+        if (!gewonnen && !unentschieden)
+        {
+            winner = spieler[amZug].name;
+        }
+        if (feld.status[x][y].equals(Color.WHITE))
+        {
+            for (int i = x; i < feld.spalten; i++)
+            {
+                for (int j = y; j < feld.reihen; j++)
+                {
+                    if (feld.status[i][j].equals(Color.WHITE))
+                    {
+                        feld.status[i][j] = spieler[amZug].farbe;
+                    }
+                }
+
+            }
+        }
+        else
+        {
+            return;
+        }
+        SpielzugHinzu(spieler[amZug]);
+        amZug = (amZug + 1) % 2;
+        setLabel(amZug);
+        if (status.equals("draw"))
+        {
+            unentschieden = true;
+            chatClient.client.imSpiel = false;
+            label.setText("Unentschieden");
+        }
+        if (status.equals("win"))
+        {
+            chatClient.client.imSpiel = false;
+            gewonnen = true;
+            label.setText(winner + " hat gewonnen");
+        }
+        if (senden)
+        {
+            sendFeld(x, y, status);
+        }
+        farbe(feld.getGraphics());
+    }
+
+    private boolean CheckWinChomp(Spielfeld feld, int x, int y)
+    {
+        Color original = feld.status[x][y];
+        feld.status[x][y] = spieler[amZug].farbe;
+        if (!feld.status[1][0].equals(Color.WHITE) && !feld.status[0][1].equals(Color.WHITE))
+        {
+            feld.status[x][y] = original;
+            return true;
+        }
+        feld.status[x][y] = original;
+        return false;
+    }
+
+    public void SpielzugHinzu(Spieler spieler)
+    {
+        stack.push(feld.status, spieler);
+    }
+    public void SpielzugEntfern()
+    {
+        stack.pop();
+        feld.status = stack.peek();
+        farbe(feld.getGraphics());
+    }
+
     public void mouseClicked(MouseEvent e)
     {
-        if ((!gewonnen || !unentschieden) && amZug == 0)
+        if (!gewonnen && !unentschieden && amZug == 0)
         {
-            int status = 0;
+            String status = "nothing";
             int x = e.getX() / breiteSquare;
             int y = e.getY() / höheSquare;
             if (x >= feld.spalten)
@@ -1198,25 +1388,25 @@ class Chomp extends Spiel implements Protokolierbar
             }
             if (CheckWinChomp(feld, x, y))
             {
-                status = 2;
+                status = "win";
             }
             Spielzug(x, y, status, true);
         }
     }
 
-    public void mousePressed(MouseEvent e) { }
-    public void mouseReleased(MouseEvent e) { }
-    public void mouseEntered(MouseEvent e) { }
-    public void mouseExited(MouseEvent e) { }
+    public void mousePressed(MouseEvent e) {}
+    public void mouseReleased(MouseEvent e) {}
+    public void mouseEntered(MouseEvent e) {}
+    public void mouseExited(MouseEvent e) {}
 
-    public void windowOpened(WindowEvent e) { }
+    public void windowOpened(WindowEvent e) {}
     public void windowClosing(WindowEvent e)
     {
         chatClient.closeGame();
     }
-    public void windowClosed(WindowEvent e) { }
-    public void windowIconified(WindowEvent e) { }
-    public void windowDeiconified(WindowEvent e) { }
-    public void windowActivated(WindowEvent e) { }
-    public void windowDeactivated(WindowEvent e) { }
+    public void windowClosed(WindowEvent e) {}
+    public void windowIconified(WindowEvent e) {}
+    public void windowDeiconified(WindowEvent e) {}
+    public void windowActivated(WindowEvent e) {}
+    public void windowDeactivated(WindowEvent e) {}
 }
