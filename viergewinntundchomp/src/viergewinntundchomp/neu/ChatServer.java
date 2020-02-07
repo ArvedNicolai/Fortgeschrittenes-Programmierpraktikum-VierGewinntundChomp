@@ -1,7 +1,7 @@
 package neu;
 
 //Fehler von der letzten Veranstaltung war in der Methode getIngameUser in der Klasse ChatServer
-//mittlerweile sollten zwei Spiele bei vier gleichzeitigen Usern funktionieren. 
+//mittlerweile sollten zwei Spiele bei 4 gleichzeitigen Usern funktionieren. 
 
 import java.net.*;
 import java.io.*;
