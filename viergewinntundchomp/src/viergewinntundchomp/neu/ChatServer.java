@@ -281,36 +281,35 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
     //aufgenommen werden, am Ende der Erstellung des spielInfo Arrays, werden alle User
     //wieder entmarkiert
     
-    private String[] getIngameUser()
+    private String[] getIngameUser()    //Fehler war in dieser Methode, hatte null Werte und hat exceptions ausgelöst
     {
-        int x = 0;
-        ChatServerThread[] accepted = getChatUser();
-        for (int i = 0; i < accepted.length; i++)
+        int x = 0, y = 0;
+        for (int i = 0; i < clientCount; i++)
         {
-            if (accepted[i].imSpiel && !accepted[i].marked)
+            if (clients[i].accepted && clients[i].imSpiel && !clients[i].marked)
             {
-                accepted[i].marked = true;
-                accepted[i].gegner.marked = true;
+                clients[i].marked = true;
+                clients[i].gegner.marked = true;
                 x++;
             }
         }
-        for (int i = 0; i < accepted.length; i++)
+        for (int i = 0; i < clientCount; i++)
         {
-            accepted[i].marked = false;
+            clients[i].marked = false;
         }
         String[] spielInfo = new String[x];
-        for (int i = 0; i < spielInfo.length; i++)
+        for (int i = 0; i < clientCount; i++)
         {
-            if (accepted[i] != null && accepted[i].imSpiel && !accepted[i].marked)
+            if (clients[i] != null && clients[i].imSpiel && !clients[i].marked)
             {
-                spielInfo[i] = "\n" + accepted[i].name + " vs. " + accepted[i].gegner.name + " (" + accepted[i].spiel + ")";
-                accepted[i].marked = true;
-                accepted[i].gegner.marked = true;
+                spielInfo[y++] = "\n" + clients[i].name + " vs. " + clients[i].gegner.name + " (" + clients[i].spiel + ")";
+                clients[i].marked = true;
+                clients[i].gegner.marked = true;
             }
         }
-        for (int i = 0; i < accepted.length; i++)
+        for (int i = 0; i < clientCount; i++)
         {
-            accepted[i].marked = false;
+            clients[i].marked = false;
         }
         return spielInfo;
     }
