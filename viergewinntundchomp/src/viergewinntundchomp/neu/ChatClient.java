@@ -4,6 +4,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
+//enthält die Klasse ChatClient und die Klassen aus Aufgabenblatt 1
+//also die Klassen Spiel, Spieler, Spielfeld, VierGewinnt, Chomp
 
 public class ChatClient extends JFrame implements Runnable, ActionListener, ItemListener, WindowListener
 {
