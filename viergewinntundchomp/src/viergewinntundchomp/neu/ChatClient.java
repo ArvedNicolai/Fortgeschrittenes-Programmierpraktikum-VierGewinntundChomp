@@ -180,7 +180,7 @@ public class ChatClient extends JFrame implements Runnable, ActionListener, Item
                 break;
 
             case "/busy":
-                append(selectedUser + " ist im Moement nicht verfügbar\n");
+                append(selectedUser + " ist im Moment nicht verfügbar\n");
                 closeGame();
                 break;
 
