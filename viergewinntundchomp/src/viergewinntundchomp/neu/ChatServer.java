@@ -13,18 +13,19 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
     private Thread thread = null;
     private int clientCount = 0;
     private JButton stopStart;
-    public JTextArea chat, event, user, ingame;
+    private JTextArea chat, event, user, ingame;
     private JTextField tPortNumber;
 
     public static void main(String[] args)
     {
         ChatServer server = new ChatServer(5555);
     }
-    public ChatServer(int port)
+    private ChatServer(int port)
     {
         super("Chat Server");
         createUI(port);
     }
+
     public void run()
     {
         while (thread != null)
@@ -40,7 +41,8 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
             }
         }
     }
-    public void start()
+
+    private void start()
     {
         if (thread == null)
         {
@@ -51,7 +53,8 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
             thread.start();
         }
     }
-    public void stop()
+
+    private void stop()
     {
         user.setText("Kein Server gestartet");
         ingame.setText("Kein Server gestartet");
@@ -70,6 +73,7 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         }
         server = null;
     }
+
     private int findClient(int ID)
     {
         for (int i = 0; i < clientCount; i++)
@@ -82,7 +86,7 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         return -1;
     }
 
-    public ChatServerThread findClientByName(String name)
+    ChatServerThread findClientByName(String name)
     {
         for (int i = 0; i < clientCount; i++)
         {
@@ -94,7 +98,7 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         return null;
     }
 
-    public void joinMessage(ChatServerThread client)
+    void joinMessage(ChatServerThread client)
     {
         String msg = client.name + " joined";
         for (int i = 0; i < clientCount; i++)
@@ -105,10 +109,10 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
             }
         }
         appendRoom(msg);
-        sendList();
-        user.setText(userListString());
+        updateUserList();
     }
-    public void leaveMessage(String name)
+
+    void leaveMessage(String name)
     {
         String msg = name + " disconnected";
         for (int i = 0; i < clientCount; i++)
@@ -121,7 +125,46 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         appendRoom(msg);
     }
 
-    public void sendAmZug(int ID1, int ID2)
+    synchronized void sendMessage(int ID, String input)
+    {
+        String message = null;
+        ChatServerThread client = clients[findClient(ID)];
+        switch (input)
+        {
+            case "/bye":
+                leaveMessage(client.name);
+                break;
+            case "/getlist":
+                updateUserList();
+                break;
+            case "/win":
+                message = client.name + " hat in " + client.spiel + "gegen " + client.gegner.name + " gewonnen";
+                break;
+            case "/draw":
+                message = "Unentschieden zwischen " + client.name + " und " + client.gegner.name + " in " + client.spiel;
+                break;
+            case "/end":
+                message = client.name + " hat in " + client.spiel + " gegen " + client.gegner.name + " aufgegeben";
+                break;
+            default:
+                message = client.name + ": " + input;
+                break;
+        }
+        if (message != null)
+        {
+            appendRoom(message);
+            for (int i = 0; i < clientCount; i++)
+            {
+                if (clients[i].accepted)
+                {
+                    clients[i].send(message);
+                }
+            }
+        }
+
+    }
+
+    void sendAmZug(int ID1, int ID2)
     {
         ChatServerThread spieler1 = clients[findClient(ID1)];
         ChatServerThread spieler2 = clients[findClient(ID2)];
@@ -129,35 +172,6 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         spieler2.sendInt(spieler2.amZug);
     }
 
-
-    public synchronized void sendMessage(int ID, String input)
-    {
-        ChatServerThread client = clients[findClient(ID)];
-        if (input.equals("/bye"))
-        {
-            leaveMessage(client.name);
-            return;
-        }
-        if (input.equals("/getlist"))
-        {
-            sendList();
-            return;
-        }
-
-        String message = client.name + ": " + input;
-        appendRoom(message);
-        for (int i = 0; i < clientCount; i++)
-        {
-            if (clients[i].accepted)
-            {
-                if (clients[i].imSpiel)
-                {
-                    clients[i].sendInt(-2);
-                }
-                clients[i].send(message);
-            }
-        }
-    }
     public synchronized void remove(int ID)
     {
         int pos = findClient(ID);
@@ -183,10 +197,9 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
                 appendEvent("Error closing thread: " + e.getMessage());
             }
         }
-        user.setText(userListString());
-        ingame.setText(imSpielString());
-        sendList();
+        updateUserList();
     }
+
     public void removeAll()
     {
         int clientAnzahl = clientCount;
@@ -219,93 +232,86 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         }
     }
 
-    public void sendList()
+    private void sendList()
     {
-        ChatServerThread[] accepted = getUser();
+        ChatServerThread[] accepted = getChatUser();
         String[] ingame = getIngameUser();
         for (int i = 0; i < accepted.length; i++)
         {
-            if(accepted[i] != null)
+            accepted[i].send("/userListBeginn");
+            for (int k = 0; k < accepted.length; k++)
             {
-                accepted[i].send("/userListBeginn");
-                for (int k = 0; k < accepted.length; k++)
-                {
-                    accepted[i].send(getUser()[k].name);
-                }
-                accepted[i].send("/userListEnde");
-                accepted[i].send("/imSpielListBeginn");
-                for (int k = 0; k < ingame.length; k++)
-                {
-                    if (ingame[k] == null)
-                    {
-                        break;
-                    }
-                    accepted[i].send(ingame[k]);
-                }
-                accepted[i].send("/imSpielListEnde");
+                accepted[i].send(getChatUser()[k].name);
             }
+            accepted[i].send("/userListEnde");
+            accepted[i].send("/imSpielListBeginn");
+            for (int k = 0; k < ingame.length; k++)
+            {
+                accepted[i].send(ingame[k]);
+            }
+            accepted[i].send("/imSpielListEnde");
         }
     }
-    ChatServerThread[] getUser()
+
+    private ChatServerThread[] getChatUser()
     {
         int k = 0,j = 0;
         for (int i = 0; i < clientCount; i++)
         {
-            if (clients[i].accepted && !clients[i].imSpiel)
+            if (clients[i].accepted)
             {
                 j++;
             }
         }
         ChatServerThread[] acceptedClients = new ChatServerThread[j];
-        for (int i = 0; i < j; i++)
+        for (int i = 0; i < acceptedClients.length; i++)
         {
-            if (clients[i].accepted && !clients[i].imSpiel)
+            if (clients[i].accepted)
             {
                 acceptedClients[k++] = clients[i];
             }
-
         }
         return acceptedClients;
     }
 
-    String[] getIngameUser()
+    private String[] getIngameUser()
     {
         int x = 0;
-        ChatServerThread[] accepted = getUser();
-        String[] ingame = new String[accepted.length];
+        ChatServerThread[] accepted = getChatUser();
         for (int i = 0; i < accepted.length; i++)
+        {
+            if (accepted[i].imSpiel && !accepted[i].marked)
+            {
+                accepted[i].marked = true;
+                accepted[i].gegner.marked = true;
+                x++;
+            }
+        }
+        for (int i = 0; i < accepted.length; i++)
+        {
+            accepted[i].marked = false;
+        }
+        String[] spielInfo = new String[x];
+        for (int i = 0; i < spielInfo.length; i++)
         {
             if (accepted[i] != null && accepted[i].imSpiel && !accepted[i].marked)
             {
-                ingame[x++] = accepted[i].name + " vs. " + accepted[i].gegner + " (" + accepted[i].spiel + ")\n";
+                spielInfo[i] = "\n" + accepted[i].name + " vs. " + accepted[i].gegner.name + " (" + accepted[i].spiel + ")";
                 accepted[i].marked = true;
                 accepted[i].gegner.marked = true;
             }
         }
         for (int i = 0; i < accepted.length; i++)
         {
-            if (accepted[i] != null && accepted[i].marked)
-            {
-                accepted[i].marked = false;
-            }
+            accepted[i].marked = false;
         }
-        return ingame;
+        return spielInfo;
     }
 
-    boolean istDrin(String name)
-    {
-        for (int i = 0; i < getUser().length; i++)
-        {
-            if (name.equals(getUser()[i].name))
-                return true;
-        }
-        return false;
-    }
-
-    String userListString()
+    private String userListString()
     {
         String namen = "Zurzeit im Raum: \n";
-        ChatServerThread[] accepted = getUser();
+        ChatServerThread[] accepted = getChatUser();
         for (int i = 0; i < accepted.length; i++)
         {
             if (accepted[i].name != null)
@@ -316,24 +322,37 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         return namen;
     }
 
-    String imSpielString()
+    private String imSpielString()
     {
-        String namen = "Zurzeit im Spiel:  \n";
+        String namen = "Zurzeit im Spiel: ";
         String[] ingame = getIngameUser();
         for (int i = 0; i < ingame.length; i++)
         {
-            if (ingame[i] == null)
-            {
-                break;
-            }
             namen = namen + ingame[i];
         }
         return namen;
     }
 
+    void updateUserList()
+    {
+        user.setText(userListString());
+        ingame.setText(imSpielString());
+        sendList();
+    }
+
+    boolean istDrin(String name)
+    {
+        for (int i = 0; i < getChatUser().length; i++)
+        {
+            if (name.equals(getChatUser()[i].name))
+                return true;
+        }
+        return false;
+    }
+
     //Aufgabenblatt3 Methoden Anfang
 
-    void createUI(int port)
+    private void createUI(int port)
     {
         //Start und Stop Button
         JPanel north = new JPanel();
@@ -379,10 +398,6 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
             appendEvent("Server geschlossen");
             for (int i = 0; i < clientCount; i++)
             {
-                if (clients[i].imSpiel)
-                {
-                    clients[i].sendInt(-1);
-                }
                 clients[i].send("Server wurde geschlossen");
             }
             removeAll();
@@ -412,7 +427,7 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
         }
     }
 
-    void appendRoom(String str)
+    private void appendRoom(String str)
     {
         chat.append(str + "\n");
     }
@@ -430,7 +445,7 @@ public class ChatServer extends JFrame implements Runnable, ActionListener, Wind
             {
                 stop();
             }
-            catch(Exception eClose) {}
+            catch(Exception ignored) {}
         }
         dispose();
         System.exit(0);
@@ -449,84 +464,24 @@ class ChatServerThread extends Thread
 {
     private ChatServer server;
     private Socket socket;
-    public int ID, xK, yK, status, amZug;
+    public int ID, amZug;
     public DataInputStream streamIn = null;
     private DataOutputStream streamOut = null;
     public boolean accepted = false, imSpiel = false, marked = false, connected = true;
-    public String name, spiel, msg = "";
+    public String name, spiel;
     public ChatServerThread gegner = null;
 
-    public ChatServerThread(ChatServer server, Socket socket)
+    ChatServerThread(ChatServer server, Socket socket)
     {
         super();
         this.server = server;
         this.socket = socket;
         ID = socket.getPort();
     }
-    public void send(String message)
-    {
-        try
-        {
-            streamOut.writeUTF(message);
-            streamOut.flush();
-        }
-        catch(IOException e)
-        {
-            server.appendEvent(ID + " ERROR sending: " + e.getMessage());
-            server.remove(ID);
-        }
-    }
-    public synchronized void sendInt(int zahl)
-    {
-        try
-        {
-            streamOut.writeInt(zahl);
-            streamOut.flush();
-        }
-        catch(IOException e)
-        {
-            server.appendEvent(ID + " ERROR sending: " + e.getMessage());
-            server.remove(ID);
-        }
-    }
 
-    public int getID()
+    int getID()
     {
         return ID;
-    }
-
-    public void antwortSpiel(String antwort) throws IOException
-    {
-        if (antwort.equals("ja"))
-        {
-            imSpiel = true;
-            server.ingame.setText(server.imSpielString());
-            send("/begin");
-            gegner.send("/begin");
-            server.sendAmZug(ID, gegner.ID);
-        }
-        else
-        {
-            imSpiel = false;
-            gegner.imSpiel = false;
-            gegner.gegner = null;
-            gegner.send("/denySpiel");
-            spiel = null;
-            gegner = null;
-        }
-    }
-
-    public void startSpiel() throws IOException
-    {
-        imSpiel = true;
-        amZug = (int) (Math.random() + .5);
-        spiel = streamIn.readUTF();
-        gegner = server.findClientByName(streamIn.readUTF());
-        gegner.amZug = (amZug + 1) % 2;
-        gegner.gegner = this;
-        gegner.send("/offerSpiel");
-        gegner.send(name);
-        gegner.send(spiel);
     }
 
     public void run()
@@ -538,64 +493,15 @@ class ChatServerThread extends Thread
             {
                 try
                 {
+                    String msg = streamIn.readUTF();
                     if (!imSpiel)
                     {
-                        msg = streamIn.readUTF();
-                        switch (msg)
-                        {
-                            case "/bye":
-                                server.leaveMessage(name);
-                                send("Auf Wiedersehen");
-                                server.remove(ID);
-                                connected = false;
-                                break;
-                            case "/startSpiel":
-                                startSpiel();
-                                break;
-                            case "/acceptSpiel":
-                                antwortSpiel("ja");
-                                break;
-                            case "/denySpiel":
-                                antwortSpiel("nein");
-                                break;
-                            default:
-                                server.sendMessage(ID, msg);
-                                break;
-                        }
+                        commands(msg);
                     }
                     else
                     {
-                        int status = streamIn.readInt();
-                        if (status > 0)
-                        {
-                            imSpiel = false;
-                            gegner.imSpiel = false;
-                            sendInt(-1);
-                            gegner.sendInt(0);
-                        }
-                        if (status == 0)
-                        {
-                            gegner.sendInt(1);
-                        }
-                        if (status == -2)
-                        {
-                            imSpiel = false;
-                            gegner.imSpiel = false;
-                            gegner.sendInt(-1);
-                        }
-                        else
-                        {
-                            int x = streamIn.readInt();
-                            int y = streamIn.readInt();
-                            if (x >= 0 && y >= 0 && status >= 0)
-                            {
-                                gegner.sendInt(status);
-                                gegner.sendInt(x);
-                                gegner.sendInt(y);
-                            }
-                        }
+                        sendSpielInfo(msg);
                     }
-
                 }
                 catch (IOException e)
                 {
@@ -634,12 +540,14 @@ class ChatServerThread extends Thread
             }
         }
     }
-    public void open() throws IOException
+
+    void open() throws IOException
     {
         streamIn = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         streamOut = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
     }
-    public void close() throws IOException
+
+    void close() throws IOException
     {
         if (socket != null)
         {
@@ -654,7 +562,195 @@ class ChatServerThread extends Thread
             streamOut.close();
         }
     }
-    public boolean checkAccount(String name, String passwort)
+
+    void send(String message)
+    {
+        try
+        {
+            if (imSpiel)
+            {
+                streamOut.writeUTF("message");
+                streamOut.flush();
+            }
+            streamOut.writeUTF(message);
+            streamOut.flush();
+        }
+        catch(IOException e)
+        {
+            server.appendEvent(ID + " ERROR sending: " + e.getMessage());
+            server.remove(ID);
+        }
+    }
+
+    private void commands(String msg) throws IOException
+    {
+        switch (msg)
+        {
+            case "/bye":
+                server.leaveMessage(name);
+                send("Auf Wiedersehen");
+                server.remove(ID);
+                connected = false;
+                break;
+            case "/startSpiel":
+                startSpiel();
+                break;
+            case "/acceptSpiel":
+                antwortSpiel(true);
+                break;
+            case "/declineSpiel":
+                antwortSpiel(false);
+                break;
+            default:
+                server.sendMessage(ID, msg);
+                break;
+        }
+    }
+
+    private void sendStatus(String status)
+    {
+        try
+        {
+            streamOut.writeUTF(status);
+            streamOut.flush();
+        }
+        catch(IOException e)
+        {
+            server.appendEvent(ID + " ERROR sending: " + e.getMessage());
+            server.remove(ID);
+        }
+    }
+
+    private void sendSpielInfo(String status) throws IOException
+    {
+        switch (status)
+        {
+            case "win": case "draw":
+            imSpiel = false;
+            server.sendMessage(ID, "/" + status);
+            gegner.sendStatus("end");
+            sendFeld(status);
+            break;
+            case "nothing":
+                gegner.sendStatus("nothing");
+                sendFeld(status);
+                break;
+            case "end":
+                gegner.imSpiel = false;
+                server.sendMessage(ID, "/" + status);
+                gegner.sendStatus("close");
+                gameEnd();
+                server.updateUserList();
+                break;
+            case "close":
+                imSpiel = false;
+                gegner.imSpiel = false;
+                server.updateUserList();
+                break;
+        }
+    }
+
+    synchronized void sendInt(int zahl)
+    {
+        try
+        {
+            streamOut.writeInt(zahl);
+            streamOut.flush();
+        }
+        catch(IOException e)
+        {
+            server.appendEvent(ID + " ERROR sending: " + e.getMessage());
+            server.remove(ID);
+        }
+    }
+
+    private void sendFeld(String status) throws IOException
+    {
+        int x, y;
+        x = streamIn.readInt();
+        y = streamIn.readInt();
+        gegner.sendStatus(status);
+        gegner.sendInt(x);
+        gegner.sendInt(y);
+    }
+
+    private void startSpiel() throws IOException
+    {
+        amZug = (int) (Math.random() + .5);
+        spiel = streamIn.readUTF();
+        int spielHöhe = streamIn.readInt();
+        int spielBreite = streamIn.readInt();
+        try
+        {
+            gegner = server.findClientByName(streamIn.readUTF());
+            if (!gegner.imSpiel)
+            {
+                gegner.amZug = (amZug + 1) % 2;
+                gegner.spiel = spiel;
+                gegner.gegner = this;
+                gegner.send("/offerSpiel");
+                gegner.send(name);
+                gegner.sendInt(spielHöhe);
+                gegner.sendInt(spielBreite);
+                gegner.send(spiel);
+
+            }
+            else
+            {
+                send("/busy");
+            }
+
+        }
+        catch (NullPointerException e)
+        {
+            send("/busy");
+
+        }
+    }
+
+    private void antwortSpiel(boolean antwort)
+    {
+        if (antwort)
+        {
+            try
+            {
+                gegner = server.findClientByName(gegner.name);
+                send("/begin");
+                gegner.send("/begin");
+                server.sendAmZug(ID, gegner.ID);
+                imSpiel = true;
+                gegner.imSpiel = true;
+                server.updateUserList();
+            }
+            catch (NullPointerException e)
+            {
+                send("/busy");
+            }
+        }
+        else
+        {
+            gegner.send("/declineSpiel");
+            if (!imSpiel)
+            {
+                gameEnd();
+            }
+        }
+    }
+
+    private void gameEnd()
+    {
+        if (gegner != null)
+        {
+            gegner.imSpiel = false;
+            gegner.spiel = null;
+            gegner.gegner = null;
+        }
+        imSpiel = false;
+        spiel = null;
+        gegner = null;
+    }
+
+    private boolean checkAccount(String name, String passwort)
     {
         File file = new  File("./Accounts");
         file.mkdir();
